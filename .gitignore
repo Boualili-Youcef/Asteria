@@ -1,0 +1,39 @@
+# Secrets et variables locales
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+clouds.yaml
+secure.yaml
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Ansible
+*.retry
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Systèmes et éditeurs
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/

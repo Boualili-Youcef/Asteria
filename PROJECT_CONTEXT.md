@@ -1,0 +1,199 @@
+# Contexte du projet Asteria
+
+## 1. Finalité du projet
+
+Asteria est un projet de portfolio conçu comme une véritable mission de
+Platform Engineering et de DevSecOps. Il ne s'agit pas de produire une simple
+démonstration Kubernetes : le projet doit montrer comment une architecture
+d'entreprise existante est reconstruite, comprise, auditée puis améliorée de
+manière progressive et justifiable.
+
+Le lab représente une version réduite d'une infrastructure réelle. Les choix
+doivent rester crédibles pour l'entreprise simulée tout en étant exécutables
+dans les quotas OpenStack disponibles.
+
+## 2. Scénario d'entreprise
+
+L'organisation simulée est une PME SaaS européenne comptant environ 100 à 500
+employés et servant des clients B2B. Elle utilise un cloud OpenStack privé pour
+des raisons de contrôle et de souveraineté.
+
+Dans la référence d'entreprise :
+
+- plusieurs environnements et davantage d'applications existent ;
+- les équipes de développement livrent plusieurs services ;
+- une équipe Platform/DevOps administre l'infrastructure ;
+- une équipe Sécurité/Audit effectue encore plusieurs contrôles manuels ;
+- des services externes ou partagés fournissent DNS, Git, CI, registre de
+  conteneurs, stockage objet et artefacts de pipelines.
+
+La plateforme est fonctionnelle, mais sa standardisation, sa sécurité, son
+observabilité et son processus de livraison sont incomplets.
+
+## 3. Rôle joué dans le projet
+
+Pendant la phase 1, le rôle consiste à reconstituer fidèlement l'état AS-IS,
+comme une équipe chargée de reconstruire et documenter l'existant.
+
+À partir de la phase 2, le rôle évoluera vers celui d'un Platform Engineer
+arrivant dans l'organisation pour :
+
+1. auditer l'existant à partir de preuves ;
+2. identifier les risques et les points de friction ;
+3. définir une architecture cible ;
+4. moderniser progressivement la plateforme selon les standards retenus.
+
+La phase 2 ne doit pas être anticipée pendant la construction de la phase 1.
+
+## 4. Architecture AS-IS validée
+
+Le diagramme de référence est `archi.md`. Sa version PDF est une représentation
+visuelle équivalente.
+
+### 4.1 Infrastructure OpenStack du lab
+
+- un réseau externe OpenStack et un routeur ;
+- une DMZ ou un réseau de services publics pour l'entrée HTTPS ;
+- un réseau de management ;
+- un réseau applicatif ;
+- un réseau de données ;
+- des security groups assurant une segmentation présente mais encore peu
+  gouvernée ;
+- une Floating IP vers l'entrée Ingress, avec Octavia si disponible ou un
+  mécanisme NodePort adapté au lab dans le cas contraire.
+
+### 4.2 Machines de la référence lab actuelle
+
+| Machine | Fonction | Dimensionnement de référence |
+|---|---|---:|
+| `bastion-admin-01` | Administration et outillage | 1 vCPU / 1 Go |
+| `k8s-control-plane-01` | Control plane Kubernetes non HA | 2 vCPU / 4 Go |
+| `k8s-worker-01` | Worker Kubernetes | 2 vCPU / 4 Go |
+| `k8s-worker-02` | Worker Kubernetes | 2 vCPU / 4 Go |
+| `db-postgres-01` | PostgreSQL primaire hors cluster | 2 vCPU / 4 Go |
+
+Empreinte de référence : **5 instances, 9 vCPU et 17 Go de RAM**.
+
+Un troisième worker a été évoqué dans le matériau de cadrage. Il n'est pas
+retenu dans la baseline tant que M03 n'a pas confirmé des quotas supérieurs à
+la limite documentée de 10 vCPU et 20 Go de RAM.
+
+### 4.3 Composants Kubernetes
+
+- `ingress-nginx` comme entrée commune ;
+- `identity-api` dans `team-identity`, déployée avec des YAML bruts ;
+- `orders-api` dans `team-orders`, déployée avec un chart Helm interne ;
+- `notifications-worker` dans `team-notifications`, déployé manuellement avec
+  `kubectl apply` ;
+- Redis partagé avec une isolation faible ;
+- Prometheus partiel, dashboards Grafana manuels et logs non centralisés.
+
+### 4.4 Données, livraison et administration
+
+- PostgreSQL s'exécute sur une VM séparée, sans réplication ni haute
+  disponibilité ;
+- les sauvegardes sont irrégulières et leur restauration n'est pas testée ;
+- les pipelines CI/CD diffèrent selon les applications ;
+- le registre du lab sera GHCR ou un registre conteneurisé selon les moyens
+  réellement disponibles ;
+- les opérations et audits passent par le bastion depuis le réseau
+  d'entreprise simulé.
+
+## 5. Contraintes OpenStack
+
+La limite connue issue de l'architecture est :
+
+- 8 instances au maximum ;
+- 10 vCPU au maximum ;
+- 20 Go de RAM au maximum.
+
+Ces valeurs sont des hypothèses de travail jusqu'à l'inventaire M03. Aucun nom
+de flavor, d'image, de réseau externe, de pool de Floating IP ou de service
+Octavia ne doit être inventé. M03 doit capturer l'état réel du tenant avant
+l'écriture définitive de Terraform.
+
+Principes obligatoires :
+
+- distinguer en permanence l'architecture d'entreprise et son implémentation
+  réduite dans le lab ;
+- ne créer aucune VM avant le design réseau et la validation du plan
+  Terraform ;
+- ne jamais stocker de secret OpenStack, clé privée ou mot de passe dans Git ;
+- documenter toute adaptation imposée par les quotas ou services disponibles.
+
+## 6. Périmètre de la phase 1
+
+La phase 1 doit construire et documenter :
+
+- le dépôt, ses règles de travail et son système de preuves ;
+- le contexte métier et le diagramme AS-IS figé ;
+- l'inventaire réel du tenant OpenStack ;
+- le design réseau et les security groups ;
+- le provisionnement OpenStack avec Terraform ;
+- le bastion et la configuration des machines ;
+- PostgreSQL sur une VM distincte ;
+- un cluster Kubernetes réduit avec un seul control plane ;
+- l'Ingress, Redis et une observabilité partielle ;
+- les trois applications représentatives ;
+- les trois modes de livraison volontairement hétérogènes ;
+- l'audit final des limites et dettes de l'AS-IS.
+
+## 7. Dettes AS-IS à conserver volontairement
+
+Les éléments suivants ne sont pas des oublis de la phase 1 :
+
+- control plane Kubernetes non HA ;
+- PostgreSQL primaire unique sans réplication ;
+- CI/CD hétérogène et absence de golden path ;
+- absence de GitOps commun et déploiements directs encore possibles ;
+- scans d'images et SBOM non systématiques ;
+- RBAC partiel, peu de NetworkPolicies et aucune policy-as-code généralisée ;
+- monitoring incomplet, sans SLO ni alerting homogène ;
+- logs consultés fréquemment avec `kubectl logs` ;
+- Redis partagé et faiblement isolé ;
+- sauvegardes présentes mais restauration non testée ;
+- forte dépendance envers l'équipe Platform.
+
+Ces dettes doivent être visibles, documentées et démontrables afin d'alimenter
+l'audit et la transformation de la phase 2.
+
+## 8. Hors périmètre pendant la phase 1
+
+Sauf instruction explicite modifiant la phase, ne pas introduire :
+
+- un control plane ou PostgreSQL hautement disponibles ;
+- une plateforme GitOps complète ;
+- une golden path ou un portail développeur mature ;
+- une gestion centralisée et avancée des secrets ;
+- une politique Kyverno ou OPA généralisée ;
+- une supply chain complète avec scans bloquants et SBOM obligatoires ;
+- une observabilité complète avec logs centralisés, SLO et alerting homogène ;
+- des corrections silencieuses rendant l'AS-IS artificiellement parfait.
+
+Les bonnes pratiques indispensables à la sécurité du lab restent obligatoires.
+Conserver une dette réaliste ne signifie jamais publier des secrets ou prendre
+un risque inutile sur l'environnement réel.
+
+## 9. Méthode de travail et preuves
+
+Le projet avance mission par mission selon `PHASE_1_BACKLOG.md`. Une mission
+n'est terminée que lorsque :
+
+1. ses livrables existent ;
+2. les validations prévues réussissent ou leurs écarts sont expliqués ;
+3. une preuve est enregistrée sous `docs/evidence/phase-1/` ;
+4. les décisions et hypothèses sont traçables ;
+5. la prochaine mission peut commencer sans dépendance cachée.
+
+## 10. Sources de vérité
+
+En cas de contradiction, appliquer cet ordre :
+
+1. inventaires et validations techniques capturés pendant les missions ;
+2. décisions explicitement approuvées dans ce fichier ;
+3. `archi.md`, architecture AS-IS validée ;
+4. `PHASE_1_BACKLOG.md`, ordre et critères des missions ;
+5. `contexte.md`, matériau de cadrage initial non normatif.
+
+Toute contradiction doit être signalée et résolue dans la documentation avant
+qu'elle n'affecte une ressource réelle.
