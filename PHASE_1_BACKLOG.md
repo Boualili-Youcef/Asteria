@@ -17,7 +17,7 @@ L'ordre ci-dessous protège les dépendances.
 | M02 | Figer et expliquer l'architecture AS-IS | Terminée | M01 |
 | M03 | Inventorier l'environnement OpenStack | Terminée | M02 |
 | M04 | Concevoir les réseaux et security groups | Terminée | M03 |
-| M05 | Écrire et appliquer Terraform réseau | En cours | M04 |
+| M05 | Écrire et appliquer Terraform réseau | Terminée | M04 |
 | M06 | Créer les machines avec Terraform | À faire | M05 |
 | M07 | Configurer le bastion | À faire | M06 |
 | M08 | Installer PostgreSQL sur VM séparée | À faire | M07 |

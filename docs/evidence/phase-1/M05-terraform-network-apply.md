@@ -5,7 +5,8 @@
 - **Préparation initiale :** 2026-07-15
 - **Révision ADR-001 :** 2026-07-15
 - **Mission :** M05
-- **Résultat :** en cours — nouvel apply réservé à l'utilisateur
+- **Clôture :** 2026-07-15
+- **Résultat :** réussi
 
 ## Objectif révisé
 
@@ -166,7 +167,7 @@ Après examen seulement :
 terraform apply m05-provider-ports-v2.tfplan
 ```
 
-## Résultats à reporter
+## Résultats attendus avant clôture
 
 - résumé add/change/destroy ;
 - confirmation de zéro réseau/sous-réseau/routeur ;
@@ -175,7 +176,42 @@ terraform apply m05-provider-ports-v2.tfplan
 - sorties OpenStack neutralisées ;
 - éventuels écarts.
 
+## Apply final et contrôles observés
+
+L'utilisateur a exécuté le nouveau plan après suppression de l'attribut
+interdit et a confirmé la réussite de l'apply. Le state local contient
+exactement les cinq ressources suivantes :
+
+```text
+openstack_networking_port_v2.bastion
+openstack_networking_port_v2.control_plane
+openstack_networking_port_v2.postgres
+openstack_networking_port_v2.worker_01
+openstack_networking_port_v2.worker_02
+```
+
+Contrôle neutralisé exécuté par Codex depuis le state issu de l'apply :
+
+| Port | Port security | Nombre de SG |
+|---|---|---:|
+| bastion | activée | 1 |
+| control plane | activée | 1 |
+| PostgreSQL | activée | 1 |
+| worker 01 | activée | 2 |
+| worker 02 | activée | 2 |
+
+Les IP et UUID propres au tenant ne sont pas reproduits dans cette preuve.
+Aucun réseau, sous-réseau, routeur, Floating IP ou load balancer n'est géré.
+
+### Écart d'outillage
+
+Le shell Codex n'hérite pas des variables d'authentification de la session
+OpenStack utilisateur. Le contrôle CLI live lancé par Codex s'est donc arrêté
+avant tout appel API avec `OS_AUTH_URL` absent. La réussite de l'apply, le state
+mis à jour et les attributs calculés des ports constituent les preuves de
+clôture disponibles.
+
 ## Critère de clôture
 
-M05 reste `En cours` jusqu'au nouvel apply et aux contrôles de ports. M06 reste
-interdite jusque-là.
+M05 est terminée : les cinq ports et leurs frontières SG existent et sont suivis
+par Terraform. M06 est maintenant autorisée.
