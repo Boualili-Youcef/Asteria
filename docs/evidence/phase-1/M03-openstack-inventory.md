@@ -21,6 +21,8 @@ openstack quota show
 openstack flavor list
 openstack image list
 openstack network list
+openstack network show prive
+openstack subnet show prive
 openstack security group list
 openstack floating ip list
 ```
@@ -35,7 +37,10 @@ dans les données conservées.
 - flavors utiles : `normale` (1 vCPU / 1 Go) et
   `puissante` (2 vCPU / 4 Go) ;
 - huit images actives, dont `ubuntu24.04` et `debian-12-custom` ;
-- un réseau visible : `prive` ;
+- un réseau externe partagé et actif : `prive` ;
+- sous-réseau externe `172.28.0.0/16`, passerelle `172.28.0.1`, DHCP actif ;
+- pool d'allocation `172.28.100.0` à `172.28.200.255` ;
+- sécurité des ports activée et MTU de 1500 ;
 - trois security groups visibles : `default`, `moodle-lab-sg` et
   `k8s_sg_defense` ;
 - la commande Floating IP reçoit une réponse HTTP 404 de Neutron.
@@ -71,7 +76,9 @@ dépasse donc les quotas et est rejetée.
 ## Décisions
 
 - conserver un control plane et deux workers ;
-- ne coder aucun réseau externe non observé ;
+- référencer `prive` comme réseau externe existant, sans le gérer ;
+- interdire aux futurs réseaux internes tout chevauchement avec
+  `172.28.0.0/16` ;
 - ne pas retenir Floating IP ou Octavia dans la baseline actuelle ;
 - concevoir le fallback NodePort prévu dans `archi.md` ;
 - contrôler l'usage réel et le réseau `prive` avant tout apply.
@@ -88,8 +95,7 @@ git diff --check
 ## Écarts et limitations
 
 - l'usage actuel des quotas n'a pas été fourni ;
-- aucun réseau externe ni routeur n'est confirmé ;
-- les propriétés du réseau `prive` ne sont pas capturées ;
+- aucun routeur existant n'est confirmé ;
 - l'API Floating IP répond 404 ;
 - Octavia côté cloud n'est pas confirmé.
 

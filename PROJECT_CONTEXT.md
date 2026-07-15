@@ -108,9 +108,10 @@ Les limites confirmées par l'inventaire M03 du 15 juillet 2026 sont :
 - 20 Go de RAM au maximum.
 
 Ces valeurs sont des limites maximales, pas une mesure de la capacité encore
-libre. La consommation actuelle doit être contrôlée avant tout apply. Aucun nom
-de réseau externe, pool de Floating IP ou service Octavia ne doit être inventé :
-M03 n'en a confirmé aucun dans la baseline exécutable.
+libre. La consommation actuelle doit être contrôlée avant tout apply. M03 a
+confirmé `prive` comme réseau externe partagé, actif et non géré par Asteria,
+avec le CIDR `172.28.0.0/16`. L'API Floating IP retourne toujours une erreur
+404 et aucun service Octavia n'est confirmé dans la baseline exécutable.
 
 Principes obligatoires :
 

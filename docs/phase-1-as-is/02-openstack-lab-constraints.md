@@ -32,8 +32,6 @@ OpenStack n'y sont pas chargées. Cette limite est documentée comme telle.
 
 - la consommation actuelle des quotas compute et RAM ;
 - les serveurs déjà présents dans le tenant ;
-- les CIDR et propriétés du sous-réseau existant ;
-- un réseau marqué `external` accessible au projet ;
 - un routeur OpenStack existant ;
 - un endpoint Octavia dans le catalogue du cloud ;
 - le nombre de règles déjà consommées dans les security groups.
@@ -110,21 +108,40 @@ Terraform définitive. M04 documentera le choix d'image et ses implications.
 
 ### 6.1 Réseau observé
 
-La commande `openstack network list` retourne uniquement un réseau nommé
-`prive` avec un sous-réseau associé.
+Le réseau `prive` a été inspecté avec `openstack network show prive`.
 
-Cette sortie confirme un réseau de projet accessible. Elle ne confirme ni son
-CIDR, ni sa fonction, ni son statut de réseau externe. Il ne doit pas être
-réutilisé ou modifié sans l'inventaire de ses propriétés.
+| Propriété | Valeur observée |
+|---|---|
+| Statut | `ACTIVE` |
+| État administratif | `UP` |
+| Réseau externe | Oui |
+| Partagé | Oui |
+| Sécurité des ports | Activée |
+| MTU | 1500 |
+| Zone de disponibilité | `nova` |
+
+Le réseau appartient à l'infrastructure partagée du cloud et ne doit pas être
+créé, modifié ou détruit par Terraform Asteria. Il devra être référencé comme
+une source de données existante.
 
 ### 6.2 Réseau externe
 
-Aucun réseau externe n'apparaît dans la sortie fournie. Le contrôle
-`openstack network list --external` tenté localement n'a pas atteint le cloud
-faute d'authentification chargée.
+`prive` est confirmé comme réseau externe partagé accessible au tenant. Son
+sous-réseau, également nommé `prive`, possède les propriétés suivantes :
 
-Décision de M03 : **aucun nom de réseau externe ne sera codé dans Terraform**
-tant qu'un terminal authentifié ne l'aura pas confirmé.
+| Propriété | Valeur observée |
+|---|---|
+| CIDR | `172.28.0.0/16` |
+| Passerelle | `172.28.0.1` |
+| Pool d'allocation | `172.28.100.0` à `172.28.200.255` |
+| DHCP | Activé |
+| Version IP | IPv4 |
+| Routes additionnelles | Aucune |
+| DNS | Deux résolveurs fournis par l'infrastructure |
+
+Décision de M03 : Terraform pourra rechercher le réseau externe par son nom
+`prive`, mais uniquement comme ressource existante non gérée. Les réseaux
+internes Asteria devront utiliser des CIDR distincts de `172.28.0.0/16`.
 
 ### 6.3 Floating IP
 
@@ -133,10 +150,12 @@ La limite de quota annonce dix Floating IP, mais
 ressource Neutron. Un quota présent ne garantit donc pas que l'API soit exposée
 ou utilisable dans ce cloud.
 
+La confirmation du réseau externe ne résout pas ce 404 : réseau externe visible
+et API Floating IP utilisable sont deux capacités différentes.
+
 Décision de M03 : la Floating IP n'appartient pas à la baseline exécutable tant
 que ce 404 n'est pas résolu. Le design M04 doit prévoir le chemin NodePort
-autorisé par l'architecture, accessible depuis le réseau privé ou le contexte
-réseau du lab.
+autorisé par l'architecture, accessible depuis le contexte réseau du lab.
 
 ### 6.4 Octavia
 
@@ -205,8 +224,6 @@ Depuis un terminal OpenStack authentifié, exécuter et documenter avant M05/M06
 openstack limits show --absolute
 openstack server list
 openstack network list --external
-openstack network show prive
-openstack subnet list
 openstack router list
 openstack security group rule list
 openstack catalog list
@@ -226,7 +243,8 @@ d'un apply.
 
 - confondre limites de quota et ressources réellement libres ;
 - déduire qu'une Floating IP fonctionne parce qu'un quota est affiché ;
-- inventer un réseau externe absent de l'inventaire ;
+- tenter de gérer ou modifier le réseau externe partagé `prive` dans Terraform ;
+- choisir pour un réseau interne un CIDR qui chevauche `172.28.0.0/16` ;
 - réutiliser un security group existant sans lire ses règles ;
 - choisir un flavor de 4 vCPU qui rendrait la baseline impossible ;
 - considérer l'absence du plugin Octavia local comme une preuve absolue de
