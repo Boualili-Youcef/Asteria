@@ -13,7 +13,7 @@ L'ordre ci-dessous protège les dépendances.
 | Mission | Intitulé | Statut | Dépend de |
 |---|---|---|---|
 | M00 | Initialiser le dépôt et les fichiers de pilotage | Terminée | — |
-| M01 | Documenter le contexte entreprise | À faire | M00 |
+| M01 | Documenter le contexte entreprise | Terminée | M00 |
 | M02 | Figer et expliquer l'architecture AS-IS | À faire | M01 |
 | M03 | Inventorier l'environnement OpenStack | À faire | M02 |
 | M04 | Concevoir les réseaux et security groups | À faire | M03 |
