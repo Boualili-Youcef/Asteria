@@ -1,39 +1,44 @@
-output "external_network" {
-  description = "Réseau externe existant utilisé par le routeur."
+output "provider_network" {
+  description = "Réseau provider existant utilisé comme underlay."
   value = {
     id   = data.openstack_networking_network_v2.external.id
     name = data.openstack_networking_network_v2.external.name
   }
 }
 
-output "internal_network_ids" {
-  description = "IDs des réseaux internes créés."
+output "vm_ports" {
+  description = "Ports précréés à attacher aux instances de M06."
   value = {
-    for key, network in openstack_networking_network_v2.internal :
-    key => network.id
+    bastion = {
+      id        = openstack_networking_port_v2.bastion.id
+      fixed_ips = openstack_networking_port_v2.bastion.all_fixed_ips
+    }
+    control_plane = {
+      id        = openstack_networking_port_v2.control_plane.id
+      fixed_ips = openstack_networking_port_v2.control_plane.all_fixed_ips
+    }
+    worker_01 = {
+      id        = openstack_networking_port_v2.worker_01.id
+      fixed_ips = openstack_networking_port_v2.worker_01.all_fixed_ips
+    }
+    worker_02 = {
+      id        = openstack_networking_port_v2.worker_02.id
+      fixed_ips = openstack_networking_port_v2.worker_02.all_fixed_ips
+    }
+    postgres = {
+      id        = openstack_networking_port_v2.postgres.id
+      fixed_ips = openstack_networking_port_v2.postgres.all_fixed_ips
+    }
   }
-}
-
-output "internal_subnet_ids" {
-  description = "IDs des sous-réseaux internes créés."
-  value = {
-    for key, subnet in openstack_networking_subnet_v2.internal :
-    key => subnet.id
-  }
-}
-
-output "router_id" {
-  description = "ID du routeur Asteria."
-  value       = openstack_networking_router_v2.asteria.id
 }
 
 output "security_group_ids" {
-  description = "IDs des security groups à attacher aux ports de M06."
+  description = "Security groups attachés aux ports."
   value       = local.security_group_ids
 }
 
 output "exposure_mode" {
-  description = "Mécanisme d'exposition retenu pour le lab."
+  description = "Mécanisme d'exposition retenu."
   value = {
     mode           = "nodeport-via-bastion"
     http_nodeport  = 30080

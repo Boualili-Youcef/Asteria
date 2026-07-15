@@ -138,8 +138,8 @@ contrôles avec OpenStack CLI.
 **Objectif :** provisionner bastion, nœuds Kubernetes et PostgreSQL dans la
 baseline confirmée en M03.
 
-**Livrables :** ressources compute, ports réseau, clés et outputs non sensibles
-sous `infra/terraform/openstack/`.
+**Livrables :** ressources compute attachées aux ports M05, clés et outputs non
+sensibles sous `infra/terraform/openstack/`.
 
 **Validation :** aucun remplacement inattendu, instances actives, bonnes
 interfaces et accès conformes à M04.

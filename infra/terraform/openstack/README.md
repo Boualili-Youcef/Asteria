@@ -1,105 +1,146 @@
-# Terraform OpenStack — Réseau Asteria
+# Terraform OpenStack — Underlay et ports Asteria
 
-## Périmètre
+## 1. Périmètre révisé
 
-Cette configuration :
+Cette configuration applique ADR-001 :
 
-- référence le réseau externe existant `prive` ;
-- crée quatre réseaux et sous-réseaux internes ;
-- crée `asteria-router` et ses quatre interfaces ;
-- crée cinq security groups et leurs règles ;
-- n'alloue aucune Floating IP ;
-- ne crée ni Octavia ni VM.
+- lit le réseau provider existant `prive` ;
+- conserve cinq security groups et leurs règles ;
+- crée cinq ports Neutron, un par future VM ;
+- laisse Neutron attribuer les adresses IP ;
+- ne crée aucun réseau, sous-réseau, routeur, Floating IP, load balancer ou VM.
 
-Le provider OpenStack est contraint à la série 3.4.
+Le provider est verrouillé en version 3.4.0 par `.terraform.lock.hcl`.
 
-## Prérequis
+## 2. État après le premier apply
 
-- Terraform >= 1.6 et < 2.0 ;
-- OpenStack CLI authentifié ;
-- variables `OS_*` ou `OS_CLOUD` configurées hors du dépôt ;
-- quotas et CIDR revérifiés ;
-- droit d'utiliser `prive` comme gateway ;
-- CIDR administrateur précis et DNS du lab.
+Le premier apply de la conception multi-réseaux a produit un état partiel :
 
-Ne jamais copier `clouds.yaml`, mot de passe, token ou clé privée ici.
+- cinq SG et leurs règles ont été créés avec succès ;
+- quatre réseaux ont échoué en HTTP 503 ;
+- le routeur a échoué en HTTP 404 ;
+- aucun réseau, sous-réseau, interface ou routeur n'est présent dans le state.
 
-## 1. Préparer les variables
+Ne pas exécuter `terraform destroy` et ne pas retirer les SG du state.
+
+## 3. Préparer les variables
+
+Le fichier `terraform.tfvars` est local et ignoré par Git.
+
+Il doit uniquement contenir les variables encore déclarées :
+
+```hcl
+admin_cidrs = [
+  "203.0.113.10/32"
+]
+
+external_network_name = "prive"
+name_prefix           = "asteria"
+```
+
+Remplacer l'IP de documentation par :
+
+- idéalement l'IP stable de l'administrateur en `/32` ;
+- sinon le plus petit CIDR VPN justifié.
+
+Interdits :
+
+- `0.0.0.0/0` ;
+- `172.28.0.0/16`, trop large pour un accès SSH ;
+- tout secret OpenStack.
+
+Supprimer de l'ancien `terraform.tfvars` la variable `dns_nameservers`, devenue
+inutile puisque le sous-réseau `prive` fournit DHCP et DNS.
+
+## 4. Vérifier le state existant
 
 ```bash
 cd infra/terraform/openstack
-cp terraform.tfvars.example terraform.tfvars
+terraform state list
 ```
 
-Remplacer les adresses d'exemple. `terraform.tfvars` est ignoré par Git.
+Le state doit contenir :
 
-## 2. Préflight OpenStack
+- la data source `prive` ;
+- cinq `openstack_networking_secgroup_v2` ;
+- leurs règles `openstack_networking_secgroup_rule_v2` ;
+- aucun `network_v2`, `subnet_v2` ou `router_v2` géré.
 
-```bash
-openstack limits show --absolute
-openstack server list
-openstack subnet list
-openstack router list
-openstack security group list
-openstack security group rule list
-openstack network show prive
-```
-
-Arrêter si les quotas, droits ou CIDR ne correspondent plus à M03/M04.
-
-## 3. Initialiser et valider
+## 5. Formater et valider
 
 ```bash
 terraform init
+terraform fmt -recursive
 terraform fmt -check -recursive
 terraform validate
 ```
 
-Relire puis commiter le `.terraform.lock.hcl` généré.
-
-## 4. Construire et examiner le plan
+## 6. Produire le nouveau plan
 
 ```bash
-terraform plan -out=m05-network.tfplan
-terraform show -no-color m05-network.tfplan
+terraform plan -out=m05-provider-ports.tfplan
+terraform show -no-color m05-provider-ports.tfplan
 ```
 
-Plan attendu : 4 réseaux, 4 sous-réseaux, 1 routeur, 4 interfaces, 5 security
-groups, 19 règles avec un CIDR administrateur, et aucune VM/FIP/Octavia.
+Avec le state actuel, le plan attendu est :
 
-Ne pas appliquer si Terraform prévoit de modifier ou détruire `prive` ou une
-ressource existante.
+- 5 ports à créer ;
+- 0 réseau ;
+- 0 sous-réseau ;
+- 0 routeur/interface ;
+- 0 Floating IP ;
+- 0 load balancer ;
+- 0 VM ;
+- 0 destruction de security group.
 
-## 5. Apply réservé à l'utilisateur
+Si `admin_cidrs` est réduit, Terraform doit remplacer uniquement la règle SSH
+du bastion devenue trop large. Cette modification est attendue.
 
-Codex ne lance pas cette commande. Après validation humaine :
+Arrêter si le plan contient :
+
+- une destruction de SG ;
+- une modification de `prive` ;
+- un réseau, sous-réseau ou routeur ;
+- une adresse IP codée en dur.
+
+## 7. Apply réservé à l'utilisateur
+
+Après examen explicite :
 
 ```bash
-terraform apply m05-network.tfplan
+terraform apply m05-provider-ports.tfplan
 ```
 
-## 6. Contrôles après apply
+Codex ne lance pas cet apply.
+
+## 8. Contrôles après apply
 
 ```bash
 terraform output
-openstack network list
-openstack subnet list
-openstack router show asteria-router
+openstack port list --network prive
+openstack port show asteria-bastion-port
+openstack port show asteria-control-plane-port
+openstack port show asteria-worker-01-port
+openstack port show asteria-worker-02-port
+openstack port show asteria-postgres-port
 openstack security group list
-openstack security group rule list asteria-bastion-sg
-openstack security group rule list asteria-control-plane-sg
-openstack security group rule list asteria-workers-sg
-openstack security group rule list asteria-ingress-sg
-openstack security group rule list asteria-postgres-sg
 ```
 
-Neutraliser les sorties avant de compléter la preuve M05.
+Pour chaque port, vérifier :
 
-## 7. Clôturer M05
+- réseau `prive` ;
+- `port_security_enabled = true` ;
+- SG correspondant au rôle ;
+- workers avec les deux SG `workers` et `ingress` ;
+- aucune application implicite du SG `default`.
 
-Après apply et contrôles :
+Neutraliser UUID et IP propres au tenant avant de compléter la preuve publique.
+
+## 9. Clôturer M05
+
+Après plan, apply et contrôles :
 
 1. compléter `docs/evidence/phase-1/M05-terraform-network-apply.md` ;
-2. ajouter le lockfile ;
-3. passer M05 à `Terminée` ;
-4. seulement ensuite commencer M06.
+2. passer M05 à `Terminée` ;
+3. committer la preuve ;
+4. commencer M06 en attachant les VMs aux ports existants.

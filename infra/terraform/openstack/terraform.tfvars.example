@@ -1,12 +1,8 @@
 # Copier vers terraform.tfvars, ignoré par Git.
-# Remplacer les adresses d'exemple par les valeurs du lab.
+# Remplacer l'adresse d'exemple par une source administrateur stricte.
 
 admin_cidrs = [
   "203.0.113.10/32"
-]
-
-dns_nameservers = [
-  "192.0.2.53"
 ]
 
 external_network_name = "prive"

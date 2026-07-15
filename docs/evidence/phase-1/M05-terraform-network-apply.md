@@ -2,94 +2,141 @@
 
 ## Métadonnées
 
-- **Date de préparation :** 2026-07-15
+- **Préparation initiale :** 2026-07-15
+- **Révision ADR-001 :** 2026-07-15
 - **Mission :** M05
-- **Résultat :** en cours — apply réservé à l'utilisateur
+- **Résultat :** en cours — nouvel apply réservé à l'utilisateur
 
-## Objectif
+## Objectif révisé
 
-Créer reproductiblement les réseaux, sous-réseaux, routeur et security groups
-définis par M04, sans gérer `prive` et sans Floating IP ni Octavia.
+Référencer `prive` et créer de façon reproductible cinq ports Neutron et cinq
+frontières SG, sans dépendre des fonctions L3 absentes.
 
-## Livrables préparés
+## Premier apply et diagnostic
 
-- `versions.tf` et `provider.tf` ;
-- `variables.tf` et `terraform.tfvars.example` ;
-- `locals.tf`, `network.tf` et `security-groups.tf` ;
-- `outputs.tf` et le README opératoire.
+### Ressources créées
 
-## Contrôles exécutés par Codex
+- cinq `openstack_networking_secgroup_v2` ;
+- les règles associées ;
+- state cohérent avec ces ressources.
 
-```text
-terraform version
-→ bash: command not found: terraform
-```
+### Ressources en échec
 
-Terraform n'est pas installé dans l'environnement Codex. Donc :
+- quatre réseaux : HTTP 503 ;
+- routeur : HTTP 404 ;
+- sous-réseaux/interfaces non créés par dépendance.
 
-- fmt, init et validate ne sont pas présentés comme réussis ;
-- aucun provider n'a été téléchargé ;
-- aucun plan et aucun apply n'ont été exécutés ;
-- aucune ressource OpenStack n'a été modifiée.
+Un plan de contrôle après l'échec annonçait 13 créations restantes et aucune
+modification/destruction. Cela confirme que les SG réussis sont correctement
+suivis et que les ressources réseau échouées ne sont pas dans le state.
 
-## Revue statique
+### Capacités confirmées
+
+- réseau provider `prive` disponible ;
+- ports et port security disponibles ;
+- security groups disponibles ;
+- extension routeur/L3 absente ;
+- réseau self-service indisponible ;
+- Floating IP et Octavia indisponibles/non confirmés.
+
+## Adaptation Terraform
+
+- suppression des ressources network/subnet/router/interface ;
+- conservation de `prive` comme data source ;
+- conservation de tous les SG/règles existants ;
+- ajout de cinq `openstack_networking_port_v2` ;
+- IP attribuées par DHCP/IPAM Neutron ;
+- outputs des IDs et IPs ;
+- lockfile provider 3.4.0 ajouté au dépôt.
+
+## Revue statique Codex
 
 Commandes exécutées :
 
 ```bash
-rg -n '^resource |^data ' infra/terraform/openstack/*.tf
-rg -c '^resource "openstack_networking_secgroup_v2"' \
-  infra/terraform/openstack/security-groups.tf
-rg -c '^resource "openstack_networking_secgroup_rule_v2"' \
-  infra/terraform/openstack/security-groups.tf
+rg -n '^resource "openstack_networking_port_v2"' \
+  infra/terraform/openstack/ports.tf
+rg -n '^resource "openstack_networking_(network|subnet|router)' \
+  infra/terraform/openstack -g '*.tf'
 rg -n 'floatingip|loadbalancer|compute_instance' \
   infra/terraform/openstack -g '*.tf'
-git check-ignore -v infra/terraform/openstack/terraform.tfvars
-git check-ignore -v infra/terraform/openstack/m05-network.tfplan
 git diff --check
 ```
 
-Résultats observés :
+Résultat attendu :
 
-- cinq blocs de création de security groups ;
-- quinze blocs de règles, dont deux utilisent `for_each` : cinq règles egress
-  et une règle SSH par CIDR administrateur ;
-- aucun type de ressource Floating IP, load balancer ou compute ;
-- tfvars et plans correctement ignorés ;
-- aucune erreur de whitespace dans le diff.
+- cinq ports ;
+- aucune ressource réseau/sous-réseau/routeur ;
+- aucune FIP/Octavia/VM ;
+- aucun secret.
 
-- `prive` est uniquement une data source ;
-- quatre réseaux/sous-réseaux, un routeur et quatre interfaces sont déclarés ;
-- cinq security groups sont déclarés ;
-- NodePort 30080/30443 est limité au bastion ;
-- aucune ressource Floating IP, Octavia ou compute n'existe ;
-- tfvars et plans sont ignorés par Git ;
-- aucun secret n'est versionné.
+Résultat observé :
 
-## Validation réservée à l'utilisateur
+- exactement cinq ressources `openstack_networking_port_v2` ;
+- aucune ressource `network_v2`, `subnet_v2` ou `router_v2` gérée ;
+- aucune ressource Floating IP, load balancer ou compute ;
+- `terraform.tfvars`, le state, `.terraform/` et les plans sont ignorés ;
+- `.terraform.lock.hcl` est volontairement versionné ;
+- `git diff --check` ne signale aucune erreur.
+
+## Validation Terraform Codex
+
+Commandes exécutées sans plan ni apply :
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
-# Remplacer les valeurs d'exemple.
-terraform init
+terraform version
 terraform fmt -check -recursive
+terraform init -backend=false -input=false
 terraform validate
-terraform plan -out=m05-network.tfplan
-terraform show -no-color m05-network.tfplan
-# Après examen explicite seulement :
-terraform apply m05-network.tfplan
+```
+
+Résultat observé :
+
+- Terraform `1.15.8` ;
+- provider OpenStack `3.4.0` réutilisé depuis le lockfile ;
+- initialisation réussie ;
+- formatage conforme ;
+- configuration valide ;
+- avertissement local : l'ancien `terraform.tfvars` contient encore la
+  variable supprimée `dns_nameservers`.
+
+Le fichier local n'a pas été lu ni modifié par Codex. L'utilisateur doit
+retirer cette variable et remplacer le CIDR administrateur trop large avant le
+plan.
+
+## Validation utilisateur requise
+
+```bash
+terraform init
+terraform fmt -recursive
+terraform validate
+terraform plan -out=m05-provider-ports.tfplan
+terraform show -no-color m05-provider-ports.tfplan
+```
+
+Plan attendu avec le state actuel :
+
+- cinq ports à ajouter ;
+- éventuellement remplacement de la règle SSH si `admin_cidrs` est réduit ;
+- aucune destruction de SG ;
+- aucune autre ressource.
+
+Après examen seulement :
+
+```bash
+terraform apply m05-provider-ports.tfplan
 ```
 
 ## Résultats à reporter
 
-- versions Terraform et provider ;
 - résumé add/change/destroy ;
-- confirmation que `prive` est seulement lu ;
-- confirmation des quatre réseaux et cinq SG ;
-- contrôles OpenStack neutralisés ;
-- écarts éventuels.
+- confirmation de zéro réseau/sous-réseau/routeur ;
+- confirmation de zéro destruction de SG ;
+- cinq ports et leurs SG ;
+- sorties OpenStack neutralisées ;
+- éventuels écarts.
 
 ## Critère de clôture
 
-M05 reste `En cours` tant que init, fmt, validate, plan, apply et contrôles
-OpenStack ne sont pas observés. M06 reste interdite jusque-là.
+M05 reste `En cours` jusqu'au nouvel apply et aux contrôles de ports. M06 reste
+interdite jusque-là.
