@@ -7,6 +7,8 @@ Cette configuration applique ADR-001 :
 - lit le réseau provider existant `prive` ;
 - conserve cinq security groups et leurs règles ;
 - crée cinq ports Neutron, un par future VM ;
+- laisse Neutron déterminer la port security effective, car la policy du tenant
+  interdit de renseigner explicitement cet attribut ;
 - laisse Neutron attribuer les adresses IP ;
 - ne crée aucun réseau, sous-réseau, routeur, Floating IP, load balancer ou VM.
 
@@ -21,7 +23,12 @@ Le premier apply de la conception multi-réseaux a produit un état partiel :
 - le routeur a échoué en HTTP 404 ;
 - aucun réseau, sous-réseau, interface ou routeur n'est présent dans le state.
 
-Ne pas exécuter `terraform destroy` et ne pas retirer les SG du state.
+Un deuxième apply a correctement remplacé la règle SSH large par le `/32`
+administrateur, puis les cinq ports ont échoué en HTTP 403 : la policy interdit
+`create_port:port_security_enabled`. Aucun port n'est entré dans le state.
+
+Ne pas exécuter `terraform destroy`, ne pas retirer les SG du state et ne pas
+réutiliser le plan ayant échoué.
 
 ## 3. Préparer les variables
 
@@ -78,8 +85,8 @@ terraform validate
 ## 6. Produire le nouveau plan
 
 ```bash
-terraform plan -out=m05-provider-ports.tfplan
-terraform show -no-color m05-provider-ports.tfplan
+terraform plan -out=m05-provider-ports-v2.tfplan
+terraform show -no-color m05-provider-ports-v2.tfplan
 ```
 
 Avec le state actuel, le plan attendu est :
@@ -93,8 +100,8 @@ Avec le state actuel, le plan attendu est :
 - 0 VM ;
 - 0 destruction de security group.
 
-Si `admin_cidrs` est réduit, Terraform doit remplacer uniquement la règle SSH
-du bastion devenue trop large. Cette modification est attendue.
+La règle SSH du bastion est déjà resserrée dans le state. Le nouveau plan doit
+donc annoncer cinq ajouts et aucune modification/destruction.
 
 Arrêter si le plan contient :
 
@@ -108,7 +115,7 @@ Arrêter si le plan contient :
 Après examen explicite :
 
 ```bash
-terraform apply m05-provider-ports.tfplan
+terraform apply m05-provider-ports-v2.tfplan
 ```
 
 Codex ne lance pas cet apply.
@@ -129,7 +136,7 @@ openstack security group list
 Pour chaque port, vérifier :
 
 - réseau `prive` ;
-- `port_security_enabled = true` ;
+- `port_security_enabled = true`, déterminé par Neutron et contrôlé après création ;
 - SG correspondant au rôle ;
 - workers avec les deux SG `workers` et `ingress` ;
 - aucune application implicite du SG `default`.

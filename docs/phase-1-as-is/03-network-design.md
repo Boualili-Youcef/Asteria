@@ -22,7 +22,7 @@ La décision complète est consignée dans ADR-001.
 |---|---|
 | Réseau provider `prive` | Disponible, partagé, actif |
 | Ports Neutron | Disponibles, quota 500 |
-| Port security | Disponible |
+| Port security | Activée sur `prive`, attribut explicite interdit à la création d'un port |
 | Security groups | Disponibles, quota 10 |
 | Réseaux self-service | Indisponibles, création HTTP 503 |
 | Routeur/L3 | Extension absente, API HTTP 404 |
@@ -60,6 +60,10 @@ dans son pool. Aucune adresse fixe n'est codée en dur.
 
 Les ports sont créés pendant M05 et attachés aux instances pendant M06. Cela
 évite l'application implicite du SG `default` et rend les IP/SG traçables.
+La configuration ne renseigne pas `port_security_enabled` : la policy Neutron
+du tenant l'interdit en HTTP 403. Neutron détermine la valeur effective à partir
+du réseau et des SG demandés ; elle doit être confirmée avec
+`openstack port show` après l'apply.
 
 ## 5. Zones de confiance logiques
 
@@ -144,6 +148,7 @@ le réseau partagé.
 - `prive` uniquement lu ;
 - SG existants conservés sans destruction ;
 - SG explicites sur chaque port ;
+- port security déterminée par Neutron et vérifiée après création ;
 - IP attribuées par Neutron et exposées en outputs ;
 - NodePorts limités au bastion ;
 - tests positifs et négatifs planifiés pour M06/M10.

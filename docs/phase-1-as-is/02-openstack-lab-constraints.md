@@ -153,7 +153,13 @@ Les extensions exposées comprennent `external-net`, `security-group`,
 
 - création des réseaux internes : HTTP 503 ;
 - liste/création des routeurs : HTTP 404 ;
+- création d'un port avec `port_security_enabled` explicite : HTTP 403 ;
 - aucun agent réseau visible avec `openstack network agent list`.
+
+Le 403 ne signifie pas que la port security est désactivée. `prive` l'active
+au niveau du réseau ; la policy interdit au projet de fixer lui-même cet
+attribut. Terraform doit donc l'omettre et contrôler la valeur effective sur
+les ports créés.
 
 Le quota `networks = 100` est une limite comptable, pas la preuve qu'un segment
 tenant soit disponible. Le lab est traité comme provider-network-only.

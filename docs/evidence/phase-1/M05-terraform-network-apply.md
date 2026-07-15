@@ -33,7 +33,8 @@ suivis et que les ressources réseau échouées ne sont pas dans le state.
 ### Capacités confirmées
 
 - réseau provider `prive` disponible ;
-- ports et port security disponibles ;
+- création de ports disponible sous réserve des attributs autorisés ;
+- port security activée sur `prive`, mais attribut explicite interdit ;
 - security groups disponibles ;
 - extension routeur/L3 absente ;
 - réseau self-service indisponible ;
@@ -48,6 +49,44 @@ suivis et que les ressources réseau échouées ne sont pas dans le state.
 - IP attribuées par DHCP/IPAM Neutron ;
 - outputs des IDs et IPs ;
 - lockfile provider 3.4.0 ajouté au dépôt.
+
+## Deuxième apply et diagnostic
+
+L'apply du plan `m05-provider-ports.tfplan` a produit deux résultats distincts :
+
+- remplacement réussi de la règle SSH `172.28.0.0/16` par le CIDR
+  administrateur strict `/32` ;
+- échec des cinq ports en HTTP 403 avec
+  `create_port:port_security_enabled` interdit par la policy Neutron.
+
+Le contrôle `terraform state list` confirme la nouvelle règle SSH et l'absence
+de tout `openstack_networking_port_v2`. Il n'existe donc aucun port partiel à
+importer ou supprimer.
+
+### Correction après le 403
+
+`port_security_enabled = true` est retiré des cinq ressources. Ce retrait ne
+demande pas sa désactivation : `prive` a déjà la protection activée et les SG
+restent explicitement attachés. Neutron détermine alors la valeur effective,
+qui sera contrôlée sur chaque port après l'apply.
+
+Ce comportement est cohérent avec la
+[référence de policy Neutron](https://docs.openstack.org/neutron/2025.1/configuration/policy.html),
+qui réserve l'attribut explicite au propriétaire du réseau ou aux services
+privilégiés, et avec
+[l'implémentation de port security](https://opendev.org/openstack/neutron/src/commit/df315513efe62667220562dd2edb5401b15ab2ba/neutron/db/portsecurity_db.py),
+qui calcule la valeur lorsque l'attribut est omis.
+
+Après correction, Codex a exécuté :
+
+```bash
+terraform fmt -check -recursive
+terraform validate
+```
+
+Résultat : configuration formatée et valide, cinq ports déclarés, aucune
+occurrence de `port_security_enabled` dans `ports.tf`. Aucun plan ni apply n'a
+été lancé par Codex.
 
 ## Revue statique Codex
 
@@ -110,21 +149,21 @@ plan.
 terraform init
 terraform fmt -recursive
 terraform validate
-terraform plan -out=m05-provider-ports.tfplan
-terraform show -no-color m05-provider-ports.tfplan
+terraform plan -out=m05-provider-ports-v2.tfplan
+terraform show -no-color m05-provider-ports-v2.tfplan
 ```
 
 Plan attendu avec le state actuel :
 
 - cinq ports à ajouter ;
-- éventuellement remplacement de la règle SSH si `admin_cidrs` est réduit ;
+- aucune modification de la règle SSH déjà resserrée ;
 - aucune destruction de SG ;
 - aucune autre ressource.
 
 Après examen seulement :
 
 ```bash
-terraform apply m05-provider-ports.tfplan
+terraform apply m05-provider-ports-v2.tfplan
 ```
 
 ## Résultats à reporter

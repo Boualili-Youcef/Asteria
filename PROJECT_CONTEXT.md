@@ -55,6 +55,8 @@ conservé comme historique et ne constitue plus une source de vérité.
 
 - un réseau provider OpenStack partagé, `prive`, comme unique underlay ;
 - un port Neutron géré par Terraform pour chaque VM ;
+- une port security effective attendue sur ces ports sans renseigner l'attribut
+  interdit par la policy du réseau provider partagé ;
 - des zones management, application, ingress et data matérialisées par cinq
   security groups dédiés ;
 - un overlay K3s Flannel VXLAN pour les Pods ;

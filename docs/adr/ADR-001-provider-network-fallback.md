@@ -28,12 +28,14 @@ Le lab utilisera une topologie **provider-network-only** :
 1. les cinq VMs seront raccordées directement à `prive` ;
 2. Terraform précréera un port Neutron par VM ;
 3. chaque port recevra uniquement les security groups de son rôle ;
-4. management, application, ingress et data deviennent des zones de confiance
+4. la port security effective sera déterminée par Neutron sans renseigner
+   l'attribut interdit par la policy du tenant, puis vérifiée après création ;
+5. management, application, ingress et data deviennent des zones de confiance
    logiques, et non des sous-réseaux Neutron ;
-5. K3s utilisera Flannel VXLAN avec les CIDR Pods `10.42.0.0/16` et Services
+6. K3s utilisera Flannel VXLAN avec les CIDR Pods `10.42.0.0/16` et Services
    `10.43.0.0/16` ;
-6. ingress-nginx sera validé via NodePort depuis le bastion ;
-7. aucun réseau, sous-réseau, routeur, Floating IP ou Octavia ne sera créé.
+7. ingress-nginx sera validé via NodePort depuis le bastion ;
+8. aucun réseau, sous-réseau, routeur, Floating IP ou Octavia ne sera créé.
 
 La référence d'entreprise conserve une segmentation plus riche. Le diagramme
 distingue explicitement cette référence de l'implémentation réduite du lab.
@@ -92,6 +94,7 @@ valeur du projet.
 - aucun réseau, sous-réseau ou routeur dans le plan Terraform ;
 - `prive` apparaît uniquement comme data source ;
 - cinq ports Neutron sont créés ;
+- port security effective confirmée sur chacun des cinq ports ;
 - aucun security group existant n'est détruit ;
 - aucun apply sans examen du plan ;
 - flux autorisés et refusés démontrés après M06.
