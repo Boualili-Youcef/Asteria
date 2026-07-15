@@ -84,9 +84,51 @@ Aucune ressource n'a été créée par cette tentative. L'ancien plan ne doit pa
 
 ## Apply et résultats
 
-À compléter après l'apply.
+L'apply utilisateur a créé la keypair et les cinq instances. Horizon et le
+state Terraform confirment :
+
+- cinq instances `active` ;
+- image `ubuntu24.04` pour les cinq ;
+- flavor `normale` pour le bastion ;
+- flavor `puissante` pour les quatre autres ;
+- keypair `asteria-admin-key` pour les cinq ;
+- exactement un port M05 attaché à chaque instance.
+
+Les adresses et UUID ne sont pas reproduits dans cette preuve.
+
+## Validation SSH et écart bloquant
+
+Le test suivant a été exécuté depuis la source administrateur autorisée :
+
+```bash
+ssh -i ~/.ssh/tp_cloud ubuntu@<IP_BASTION> 'hostname; cloud-init status'
+```
+
+Résultat : connexion réseau et serveur SSH disponibles, mais authentification
+refusée avec `Permission denied (publickey)`.
+
+Contrôles complémentaires :
+
+- utilisateurs `ubuntu`, `debian`, `cloud-user` et `root` refusés ;
+- empreinte de la keypair OpenStack identique à `tp_cloud.pub` ;
+- clé privée correspondante confirmée ;
+- propriété Glance `os_admin_user = ubuntu`.
+
+La VM a donc reçu la référence de keypair côté Nova, mais la clé n'est pas
+utilisable dans le guest. Aucun mot de passe ni contenu de clé n'a été exposé.
+
+## Correction config-drive
+
+Terraform demande maintenant `config_drive = true` sur les cinq instances.
+Selon Nova, ce disque fournit localement les métadonnées normalement servies
+par le metadata service et peut être consommé automatiquement par cloud-init.
+
+Le provider traite ce changement comme un remplacement de serveur. Un nouveau
+plan `m06-compute-v3.tfplan` doit donc être examiné avant toute action. Il doit
+remplacer uniquement les cinq instances et conserver les ports, SG et keypair.
 
 ## Critère de clôture
 
-M06 reste `En cours` jusqu'à ce que les cinq instances soient `ACTIVE`, avec
-les flavors, image, ports et accès attendus. M07 reste interdite jusque-là.
+M06 reste `En cours` : l'état `ACTIVE` est atteint, mais l'accès administratif
+n'est pas fonctionnel. La mission ne sera clôturée qu'après remplacement avec
+config-drive et test SSH réussi. M07 reste interdite jusque-là.

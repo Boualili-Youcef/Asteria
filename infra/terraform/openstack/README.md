@@ -160,6 +160,8 @@ M06 ajoute uniquement :
 - un bastion `normale` ;
 - un control plane, deux workers et PostgreSQL en flavor `puissante` ;
 - l'attachement de chaque VM à son port M05 existant.
+- un config-drive Nova par VM pour fournir les métadonnées et la clé SSH sans
+  dépendre du metadata service réseau.
 
 La clé privée n'est jamais lue par Terraform ni copiée dans le state.
 
@@ -177,18 +179,19 @@ Plan :
 ```bash
 terraform fmt -recursive
 terraform validate
-terraform plan -out=m06-compute-v2.tfplan
-terraform show -no-color m06-compute-v2.tfplan
+terraform plan -out=m06-compute-v3.tfplan
+terraform show -no-color m06-compute-v3.tfplan
 ```
 
-Le plan doit annoncer exactement six ajouts : une keypair et cinq instances.
-Il ne doit remplacer ni port ni security group et ne doit modifier aucune
-ressource M05.
+Lors de la création initiale, le plan doit annoncer une keypair et cinq
+instances. Après le diagnostic SSH M06, l'activation du config-drive force le
+remplacement des cinq instances existantes. Ce remplacement est acceptable
+uniquement si les cinq ports, la keypair et tous les SG restent inchangés.
 
 Apply après examen explicite :
 
 ```bash
-terraform apply m06-compute-v2.tfplan
+terraform apply m06-compute-v3.tfplan
 ```
 
 Contrôles :
@@ -206,3 +209,9 @@ openstack server show db-postgres-01
 Les cinq instances doivent être `ACTIVE`, utiliser l'image `ubuntu24.04`, les
 flavors attendus et exactement leur port M05. L'accès direct SSH doit rester
 limité au bastion.
+
+Validation SSH du bastion :
+
+```bash
+ssh -i ~/.ssh/tp_cloud ubuntu@<IP_BASTION> 'hostname; cloud-init status'
+```

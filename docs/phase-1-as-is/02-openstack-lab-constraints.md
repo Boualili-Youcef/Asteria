@@ -272,6 +272,18 @@ d'un apply.
   l'absence du service cloud ;
 - enregistrer des fichiers d'authentification ou sorties sensibles dans Git.
 
+### 10.1 Injection des métadonnées Nova
+
+M06 a observé que cinq instances démarrées sans config-drive étaient actives,
+avec la bonne keypair associée, mais refusaient la clé SSH correspondante pour
+l'utilisateur `ubuntu`. L'empreinte enregistrée dans OpenStack correspondait
+exactement à la clé publique locale et l'image déclarait bien
+`os_admin_user = ubuntu`.
+
+Le metadata service inaccessible ou non consommé par l'image est l'hypothèse
+principale, sans être présenté comme un fait confirmé. La baseline demande donc
+un config-drive Nova et valide ensuite l'injection par un test SSH réel.
+
 ## 11. Conclusion de M03
 
 Les quotas, flavors, images, réseau provider et security groups sont

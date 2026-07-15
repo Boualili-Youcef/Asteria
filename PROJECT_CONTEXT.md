@@ -62,6 +62,8 @@ conservé comme historique et ne constitue plus une source de vérité.
 - un overlay K3s Flannel VXLAN pour les Pods ;
 - une entrée NodePort privée accessible depuis le bastion ;
 - aucun réseau self-service, routeur L3, Floating IP ou Octavia dans le lab.
+- un config-drive Nova demandé pour chaque VM afin de ne pas dépendre du
+  metadata service pour l'injection de la clé SSH.
 
 ### 4.2 Machines de la référence lab actuelle
 

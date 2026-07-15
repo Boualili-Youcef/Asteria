@@ -53,10 +53,11 @@ locals {
 resource "openstack_compute_instance_v2" "vm" {
   for_each = local.instances
 
-  name      = each.value.name
-  image_id  = data.openstack_images_image_v2.ubuntu.id
-  flavor_id = each.value.flavor_id
-  key_pair  = openstack_compute_keypair_v2.admin.name
+  name         = each.value.name
+  image_id     = data.openstack_images_image_v2.ubuntu.id
+  flavor_id    = each.value.flavor_id
+  key_pair     = openstack_compute_keypair_v2.admin.name
+  config_drive = true
 
   metadata = {
     environment = "phase-1-as-is"
