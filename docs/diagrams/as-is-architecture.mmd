@@ -6,7 +6,8 @@ flowchart TB
     Corp[VPN / reseau entreprise]
 
     subgraph REALITY[Reference entreprise simulee]
-        RealNote[PME 100-500 employes<br/>OpenStack prive pour controle/souverainete<br/>plusieurs environnements et plus d applications en realite]
+        RealNote[PME 100-500 employes<br/>OpenStack prive pour controle/souverainete<br/>en entreprise: DMZ, management, application et data segmentes]
+        RealIngress[Entree HTTPS entreprise<br/>DNS + load balancer / floating IP]
     end
 
     subgraph EXT[Services externes et partages]
@@ -19,68 +20,75 @@ flowchart TB
     end
 
     subgraph LAB[Implementation lab OpenStack<br/>8 instances max / 10 vCPU / 20GB RAM]
-        ExtNet[OpenStack external network]
-        Router[Router OpenStack]
-        SG[Security groups / firewall logique<br/>segmentation presente mais regles peu gouvernees]
+        ProviderNet[Reseau provider partage prive<br/>172.28.0.0/16<br/>seul underlay disponible]
+        Limits[Contraintes Neutron du lab<br/>pas de reseau self-service<br/>pas de routeur L3<br/>pas de Floating IP / Octavia]
+        Ports[Ports Neutron geres par Terraform<br/>IP attribuees par le cloud]
 
-        subgraph DMZ[DMZ / public-services-net]
-            FIP[Floating IP HTTPS<br/>vers entree Ingress<br/>Octavia LB si disponible sinon NodePort]
-        end
+        subgraph TRUST[Zones de confiance logiques par security groups]
+            subgraph MGMT[Zone management logique]
+                Bastion[Bastion + admin workstation<br/>1 vCPU / 1GB<br/>SG bastion]
+            end
 
-        subgraph MGMT[Management network]
-            Bastion[Bastion + admin workstation<br/>1 vCPU / 1GB<br/>Terraform, Ansible, OpenStack CLI, kubectl, psql]
-        end
+            subgraph APPZONE[Zone application logique]
+                subgraph K8S[Cluster Kubernetes prod-like reduit<br/>control plane non HA<br/>overlay K3s Flannel VXLAN]
+                    CP[control-plane-01<br/>2 vCPU / 4GB<br/>SG control-plane]
+                    W1[worker-01<br/>2 vCPU / 4GB<br/>SG workers + ingress]
+                    W2[worker-02<br/>2 vCPU / 4GB<br/>SG workers + ingress]
 
-        subgraph APPNET[Application network]
-            subgraph K8S[Cluster Kubernetes prod-like reduit<br/>contrainte lab: control plane non HA]
-                CP[control-plane-01<br/>2 vCPU / 4GB]
-                W1[worker-01<br/>2 vCPU / 4GB]
-                W2[worker-02<br/>2 vCPU / 4GB]
+                    Ingress[namespace ingress-nginx<br/>NGINX Ingress Controller<br/>NodePort 30080 / 30443<br/>accessible depuis bastion]
 
-                Ingress[namespace ingress-nginx<br/>NGINX Ingress Controller]
+                    subgraph IDNS[namespace team-identity]
+                        Identity[identity-api<br/>deploiement YAML brut]
+                    end
 
-                subgraph IDNS[namespace team-identity]
-                    Identity[identity-api<br/>deploiement YAML brut]
-                end
+                    subgraph ORDNS[namespace team-orders]
+                        Orders[orders-api<br/>chart Helm interne]
+                    end
 
-                subgraph ORDNS[namespace team-orders]
-                    Orders[orders-api<br/>chart Helm interne]
-                end
+                    subgraph NOTIFNS[namespace team-notifications]
+                        Notif[notifications-worker<br/>deploiement manuel kubectl apply]
+                    end
 
-                subgraph NOTIFNS[namespace team-notifications]
-                    Notif[notifications-worker<br/>deploiement manuel kubectl apply]
-                end
+                    subgraph SHARED[namespace shared]
+                        Redis[Redis partage<br/>isolation faible]
+                    end
 
-                subgraph SHARED[namespace shared/data-in-cluster]
-                    Redis[Redis partage<br/>isolation faible]
-                end
-
-                subgraph MON[namespace monitoring]
-                    Prom[Prometheus partiel]
-                    Graf[Grafana dashboards manuels]
-                    Logs[Logs non centralises<br/>usage frequent kubectl logs]
+                    subgraph MON[namespace monitoring]
+                        Prom[Prometheus partiel]
+                        Graf[Grafana dashboards manuels]
+                        Logs[Logs non centralises<br/>usage frequent kubectl logs]
+                    end
                 end
             end
-        end
 
-        subgraph DATANET[Data network]
-            DB[(PostgreSQL VM separee<br/>2 vCPU / 4GB<br/>primary seul, pas de HA)]
+            subgraph DATAZONE[Zone data logique]
+                DB[(PostgreSQL VM separee<br/>2 vCPU / 4GB<br/>primary seul, pas de HA<br/>SG postgres)]
+            end
         end
     end
 
-    %% User flow
-    Users --> DNS --> ExtNet --> Router --> SG --> FIP --> Ingress
+    Users --> DNS --> RealIngress
+    RealIngress -. reference entreprise non reproduite dans le lab .-> Ingress
+    Ops --> Corp --> Bastion
+    Sec --> Corp --> Bastion
+    Bastion -->|NodePort prive| Ingress
     Ingress --> Identity
     Ingress --> Orders
 
-    %% App/data flows
+    ProviderNet --- Ports
+    Ports --- Bastion
+    Ports --- CP
+    Ports --- W1
+    Ports --- W2
+    Ports --- DB
+    ProviderNet -. limitation .-> Limits
+
     Identity --> DB
     Orders --> DB
     Orders --> Redis
     Notif --> DB
     Notif --> Redis
 
-    %% Delivery flows
     Devs --> Git --> CIHosted
     CIHosted --> CIIdentity[identity pipeline<br/>build + push<br/>pas de scan]
     CIHosted --> CIOrders[orders pipeline<br/>tests + build + push<br/>pas de SBOM]
@@ -94,20 +102,14 @@ flowchart TB
     CIIdentity -. rapports partiels .-> Artifacts
     CIOrders -. rapports partiels .-> Artifacts
 
-    %% Admin flows
-    Ops --> Corp --> Bastion
-    Sec --> Corp --> Bastion
     Bastion --> CP
     Bastion --> W1
     Bastion --> W2
     Bastion --> DB
-
-    %% Security/audit flows
     Sec -. audit manuel .-> Git
     Sec -. audit manuel .-> Reg
     Sec -. revue manuelle manifests/RBAC .-> CP
 
-    %% Observability flows
     Identity -. metrics partielles .-> Prom
     Orders -. metrics partielles .-> Prom
     Notif -. logs/metrics incomplets .-> Prom
@@ -119,16 +121,15 @@ flowchart TB
     Orders -. kubectl logs manuel .-> Logs
     Notif -. kubectl logs manuel .-> Logs
 
-    %% Backup flow
     DB -. backups irreguliers .-> Obj
 
-    %% AS-IS debts and lab limits
     D1[[Dette AS-IS: CI/CD heterogene<br/>pas de golden path]]
     D2[[Dette AS-IS: pas de GitOps commun<br/>deploiements directs possibles]]
-    D3[[Dette AS-IS: securite K8s incomplete<br/>RBAC partiel, peu de NetworkPolicies, pas de policy-as-code]]
+    D3[[Dette AS-IS: securite K8s incomplete<br/>RBAC partiel, peu de NetworkPolicies]]
     D4[[Dette AS-IS: observabilite partielle<br/>pas de SLO ni alerting homogene]]
     D5[[Dette AS-IS: backups presents<br/>restore non teste]]
-    L1[[Limite lab: 5 instances / 9 vCPU / 17GB RAM<br/>prod reelle plus large et HA]]
+    L1[[Limite lab: underlay plat partage<br/>segmentation compensee par SG + overlay K3s]]
+    L2[[Limite lab: 5 instances / 9 vCPU / 17GB RAM<br/>production reelle plus large et HA]]
 
     CIHosted -.-> D1
     ManualDeploy -.-> D1
@@ -136,4 +137,5 @@ flowchart TB
     K8S -.-> D3
     MON -.-> D4
     DB -.-> D5
-    LAB -.-> L1
+    ProviderNet -.-> L1
+    LAB -.-> L2

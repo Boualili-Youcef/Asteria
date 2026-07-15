@@ -105,7 +105,8 @@ et disponibilité d'Octavia. Arbitrer la baseline à deux ou trois workers.
 
 ## M04 — Concevoir les réseaux et security groups
 
-**Objectif :** définir les réseaux et flux avant de les créer.
+**Objectif :** définir l'underlay disponible, les ports et les flux avant de les
+créer.
 
 **Livrables :**
 
@@ -113,15 +114,15 @@ et disponibilité d'Octavia. Arbitrer la baseline à deux ou trois workers.
 - `docs/phase-1-as-is/04-instance-sizing.md` ;
 - `docs/phase-1-as-is/05-security-groups.md`.
 
-**Validation :** plan d'adressage sans collision, matrice source/destination,
-ports justifiés et conformité à M03.
+**Validation :** topologie provider-network-only conforme à M03/ADR-001,
+matrice source/destination, ports justifiés et SG sous quotas.
 
 **Preuve :** `M04-network-design-approved.md`.
 
 ## M05 — Écrire et appliquer Terraform réseau
 
-**Objectif :** créer de façon reproductible réseaux, sous-réseaux, routeur,
-security groups et mécanisme d'exposition.
+**Objectif :** référencer le réseau provider et créer de façon reproductible
+ports Neutron, security groups et mécanisme d'exposition.
 
 **Livrables :** configuration sous `infra/terraform/openstack/`, variables
 documentées et outputs utiles.

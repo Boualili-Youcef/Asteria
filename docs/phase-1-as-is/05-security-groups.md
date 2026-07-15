@@ -2,8 +2,8 @@
 
 ## 1. Principes
 
-Cinq security groups Asteria sont créés. Avec les trois groupes observés en
-M03, le total nominal est de huit sur un quota de dix.
+Cinq security groups Asteria sont créés et suivis dans le state. Avec les trois
+groupes observés en M03, le total est de huit sur un quota de dix.
 
 Principes retenus :
 
@@ -13,6 +13,10 @@ Principes retenus :
 - réserver les CIDR aux sources externes d'administration ;
 - ne jamais réutiliser `default`, `moodle-lab-sg` ou `k8s_sg_defense` ;
 - ne pas ouvrir les NodePorts au monde entier.
+
+Les cinq VMs partagent `prive` : ces groupes constituent donc la principale
+segmentation de l'underlay et doivent être attachés aux ports précréés, jamais
+remplacés par le SG `default`.
 
 ## 2. Groupes
 
@@ -83,13 +87,23 @@ nominalement sous le quota global de 100, sous réserve des règles existantes.
 - les CIDR administrateur doivent être précis, jamais `0.0.0.0/0` ;
 - la limite globale doit être vérifiée avant apply.
 
-## 8. Commandes de validation avant apply
+## 8. Tests de validation
 
 ```bash
 openstack security group list
 openstack security group rule list
 openstack quota show
+openstack port list
 ```
 
 Après apply, vérifier chaque groupe avec
 `openstack security group rule list <nom-du-groupe>`.
+
+Après M06, compléter avec des tests de connexion autorisés et refusés :
+
+- administrateur vers bastion : succès ;
+- administrateur vers nœuds/DB : refus ;
+- bastion vers nœuds/DB : succès ;
+- worker vers PostgreSQL : succès ;
+- control plane vers PostgreSQL : refus ;
+- source non-bastion vers NodePorts : refus.

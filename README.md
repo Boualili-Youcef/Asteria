@@ -18,7 +18,9 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 ## Phase actuelle
 
 M00 à M04 sont terminées. M05 est en cours : Terraform est préparé, mais les
-validations, le plan et l'apply restent à exécuter par l'utilisateur.
+validations, le nouveau plan provider-network-only et l'apply restent à exécuter
+par l'utilisateur. La décision est documentée dans
+`docs/adr/ADR-001-provider-network-fallback.md`.
 
 Aucune ressource OpenStack ne doit être créée avant l'inventaire M03, le design
 réseau M04 et la validation d'un plan Terraform en M05.

@@ -2,61 +2,75 @@
 
 ## Métadonnées
 
-- **Date :** 2026-07-15
+- **Date initiale :** 2026-07-15
+- **Date de révision :** 2026-07-15
 - **Mission :** M04
-- **Résultat :** validé
+- **Résultat :** validé selon ADR-001
 
 ## Objectif
 
-Définir le plan réseau, le dimensionnement et les flux avant toute création de
-ressources.
+Définir un plan réseau exécutable sur le tenant réel avant la création des VMs.
 
 ## Livrables
 
 - `docs/phase-1-as-is/03-network-design.md` ;
 - `docs/phase-1-as-is/04-instance-sizing.md` ;
-- `docs/phase-1-as-is/05-security-groups.md`.
+- `docs/phase-1-as-is/05-security-groups.md` ;
+- `docs/adr/ADR-001-provider-network-fallback.md`.
 
-## Décisions validées
+## Diagnostic ayant déclenché la révision
 
-- quatre réseaux internes dans `10.20.0.0/16` ;
-- `prive` référencé comme réseau externe existant et non géré ;
-- routeur unique connecté aux quatre sous-réseaux ;
-- NodePort privé 30080/30443 accessible uniquement depuis le bastion ;
-- cinq security groups Asteria ;
-- image `ubuntu24.04` et flavors `normale`/`puissante` ;
-- baseline de cinq instances, 9 vCPU et 17 Go.
+La conception initiale multi-réseaux a échoué pendant M05 :
 
-## Validation
+- cinq SG et leurs règles : créés ;
+- quatre réseaux self-service : HTTP 503 ;
+- routeur : HTTP 404 ;
+- extension `router` absente ;
+- aucun agent réseau visible ;
+- Floating IP déjà en HTTP 404.
+
+Aucun réseau ou routeur en échec n'est entré dans le state.
+
+## Décisions révisées
+
+- underlay unique `prive` (`172.28.0.0/16`) ;
+- cinq ports Neutron, un par VM ;
+- cinq SG par rôle comme frontières logiques ;
+- K3s Flannel VXLAN pour `10.42.0.0/16` ;
+- Services Kubernetes sur `10.43.0.0/16` ;
+- NodePort 30080/30443 accessible uniquement depuis le bastion ;
+- aucun réseau, sous-réseau, routeur, Floating IP ou Octavia.
+
+## Conformité
+
+- dimensionnement inchangé : 5 instances, 9 vCPU, 17 Go ;
+- ports : 5 sur quota 500 ;
+- SG : 8 utilisés sur quota 10 ;
+- règles : sous quota 100 ;
+- réseau externe lu, jamais géré ;
+- limites du lab visibles, non masquées.
+
+## Validation documentaire
 
 ```bash
-python3 -c 'import ipaddress; n=[ipaddress.ip_network(x) for x in ["172.28.0.0/16","10.20.10.0/24","10.20.20.0/24","10.20.30.0/24","10.20.40.0/24","10.42.0.0/16","10.43.0.0/16"]]; assert all(not a.overlaps(b) for i,a in enumerate(n) for b in n[i+1:]); print("CIDR_OK")'
-rg -n '30080|30443|6443|10250|8472|5432' \
-  docs/phase-1-as-is/05-security-groups.md
+rg -n 'provider-network|cinq ports|Flannel|NodePort' \
+  docs/phase-1-as-is/03-network-design.md
+rg -n 'HTTP 503|HTTP 404|security groups' \
+  docs/adr/ADR-001-provider-network-fallback.md
 git diff --check
 ```
 
-Résultats attendus :
+## Tests différés
 
-- `CIDR_OK` ;
-- chaque port apparaît avec une source, une destination et une justification ;
-- aucune erreur de format Git.
+La validation effective des ports et flux nécessite :
 
-## Conformité à M03
-
-- aucun chevauchement avec `172.28.0.0/16` ;
-- deux workers seulement ;
-- aucun usage de Floating IP ou Octavia ;
-- cinq nouveaux SG maintiennent le total nominal sous dix ;
-- les informations non observées restent des prérequis d'apply.
-
-## Écarts
-
-La consommation actuelle des quotas et des règles n'est pas connue. Ce point ne
-bloque pas la conception, mais bloque tout apply non précédé d'un nouvel
-inventaire.
+1. un plan M05 sans destruction ;
+2. l'apply explicite de l'utilisateur ;
+3. les VMs M06 attachées aux ports ;
+4. des tests réseau positifs et négatifs.
 
 ## Conclusion
 
-Le design M04 est suffisamment précis pour être traduit en Terraform. Aucune
-ressource OpenStack n'a été créée ou modifiée.
+M04 reste terminée avec une révision traçable. M05 peut reprendre sur la
+topologie provider-network-only. La référence entreprise segmentée reste
+distincte du lab.

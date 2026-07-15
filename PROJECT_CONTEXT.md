@@ -47,20 +47,19 @@ La phase 2 ne doit pas être anticipée pendant la construction de la phase 1.
 
 ## 4. Architecture AS-IS validée
 
-Le diagramme de référence est `archi.md`. Sa version PDF est une représentation
-visuelle équivalente.
+Le diagramme de référence courant est `archi.md`. Le PDF présent à la racine
+représente la conception initiale antérieure au diagnostic Neutron ; il est
+conservé comme historique et ne constitue plus une source de vérité.
 
 ### 4.1 Infrastructure OpenStack du lab
 
-- un réseau externe OpenStack et un routeur ;
-- une DMZ ou un réseau de services publics pour l'entrée HTTPS ;
-- un réseau de management ;
-- un réseau applicatif ;
-- un réseau de données ;
-- des security groups assurant une segmentation présente mais encore peu
-  gouvernée ;
-- une Floating IP vers l'entrée Ingress, avec Octavia si disponible ou un
-  mécanisme NodePort adapté au lab dans le cas contraire.
+- un réseau provider OpenStack partagé, `prive`, comme unique underlay ;
+- un port Neutron géré par Terraform pour chaque VM ;
+- des zones management, application, ingress et data matérialisées par cinq
+  security groups dédiés ;
+- un overlay K3s Flannel VXLAN pour les Pods ;
+- une entrée NodePort privée accessible depuis le bastion ;
+- aucun réseau self-service, routeur L3, Floating IP ou Octavia dans le lab.
 
 ### 4.2 Machines de la référence lab actuelle
 
@@ -111,7 +110,10 @@ Ces valeurs sont des limites maximales, pas une mesure de la capacité encore
 libre. La consommation actuelle doit être contrôlée avant tout apply. M03 a
 confirmé `prive` comme réseau externe partagé, actif et non géré par Asteria,
 avec le CIDR `172.28.0.0/16`. L'API Floating IP retourne toujours une erreur
-404 et aucun service Octavia n'est confirmé dans la baseline exécutable.
+404 et aucun service Octavia n'est confirmé dans la baseline exécutable. Les
+tests M05 ont ensuite confirmé l'absence de l'extension routeur/L3, l'échec de
+création des réseaux self-service en HTTP 503 et l'échec des routeurs en HTTP
+404. `docs/adr/ADR-001-provider-network-fallback.md` formalise l'adaptation.
 
 Principes obligatoires :
 

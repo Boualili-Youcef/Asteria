@@ -43,7 +43,10 @@ dans les données conservées.
 - sécurité des ports activée et MTU de 1500 ;
 - trois security groups visibles : `default`, `moodle-lab-sg` et
   `k8s_sg_defense` ;
-- la commande Floating IP reçoit une réponse HTTP 404 de Neutron.
+- la commande Floating IP reçoit une réponse HTTP 404 de Neutron ;
+- l'extension `router` n'est pas exposée et `router list` retourne 404 ;
+- `network agent list` ne retourne aucun agent visible ;
+- les créations de réseaux internes retournent HTTP 503.
 
 ## Contrôles complémentaires
 
@@ -76,9 +79,8 @@ dépasse donc les quotas et est rejetée.
 ## Décisions
 
 - conserver un control plane et deux workers ;
-- référencer `prive` comme réseau externe existant, sans le gérer ;
-- interdire aux futurs réseaux internes tout chevauchement avec
-  `172.28.0.0/16` ;
+- référencer `prive` comme unique underlay existant, sans le gérer ;
+- précréer un port Neutron par VM et appliquer les SG par rôle ;
 - ne pas retenir Floating IP ou Octavia dans la baseline actuelle ;
 - concevoir le fallback NodePort prévu dans `archi.md` ;
 - contrôler l'usage réel et le réseau `prive` avant tout apply.
@@ -95,15 +97,15 @@ git diff --check
 ## Écarts et limitations
 
 - l'usage actuel des quotas n'a pas été fourni ;
-- aucun routeur existant n'est confirmé ;
+- les réseaux self-service et routeurs L3 ne sont pas disponibles ;
 - l'API Floating IP répond 404 ;
 - Octavia côté cloud n'est pas confirmé.
 
-Ces limitations empêchent un apply sûr mais n'empêchent pas M04 de concevoir un
-réseau sans inventer les valeurs manquantes.
+Ces limitations imposent la topologie provider-network-only formalisée dans
+ADR-001. Elles n'empêchent pas la création de ports et de security groups.
 
 ## Conclusion
 
-L'inventaire est suffisant pour fixer le dimensionnement et démarrer M04. Les
-contrôles manquants sont transformés en prérequis explicites de création des
-ressources. Aucune ressource OpenStack n'a été créée ou modifiée.
+L'inventaire et l'échec contrôlé M05 fixent la topologie du lab. Les cinq
+security groups et leurs règles restent suivis par Terraform ; aucun réseau ni
+routeur n'a été créé.

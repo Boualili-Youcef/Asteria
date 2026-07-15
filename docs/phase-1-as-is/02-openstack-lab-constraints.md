@@ -25,6 +25,10 @@ OpenStack n'y sont pas chargées. Cette limite est documentée comme telle.
 - un réseau de projet nommé `prive` est visible ;
 - trois security groups existent ;
 - `openstack floating ip list` retourne une erreur HTTP 404 de l'API Neutron ;
+- l'extension Neutron `router`/L3 n'est pas exposée ;
+- `openstack router list` retourne HTTP 404 ;
+- la création de réseaux self-service retourne HTTP 503 ;
+- `openstack network agent list` ne retourne aucun agent visible ;
 - le client OpenStack local ne possède pas la commande Octavia
   `loadbalancer provider list`.
 
@@ -32,7 +36,6 @@ OpenStack n'y sont pas chargées. Cette limite est documentée comme telle.
 
 - la consommation actuelle des quotas compute et RAM ;
 - les serveurs déjà présents dans le tenant ;
-- un routeur OpenStack existant ;
 - un endpoint Octavia dans le catalogue du cloud ;
 - le nombre de règles déjà consommées dans les security groups.
 
@@ -141,9 +144,21 @@ sous-réseau, également nommé `prive`, possède les propriétés suivantes :
 
 Décision de M03 : Terraform pourra rechercher le réseau externe par son nom
 `prive`, mais uniquement comme ressource existante non gérée. Les réseaux
-internes Asteria devront utiliser des CIDR distincts de `172.28.0.0/16`.
+internes initialement envisagés ne sont pas créables sur ce tenant.
 
-### 6.3 Floating IP
+### 6.3 Réseaux self-service et routage
+
+Les extensions exposées comprennent `external-net`, `security-group`,
+`port-security` et `binding`, mais pas `router`. Les appels confirment :
+
+- création des réseaux internes : HTTP 503 ;
+- liste/création des routeurs : HTTP 404 ;
+- aucun agent réseau visible avec `openstack network agent list`.
+
+Le quota `networks = 100` est une limite comptable, pas la preuve qu'un segment
+tenant soit disponible. Le lab est traité comme provider-network-only.
+
+### 6.4 Floating IP
 
 La limite de quota annonce dix Floating IP, mais
 `openstack floating ip list` retourne une erreur `ResourceNotFound 404` sur la
@@ -157,7 +172,7 @@ Décision de M03 : la Floating IP n'appartient pas à la baseline exécutable ta
 que ce 404 n'est pas résolu. Le design M04 doit prévoir le chemin NodePort
 autorisé par l'architecture, accessible depuis le contexte réseau du lab.
 
-### 6.4 Octavia
+### 6.5 Octavia
 
 La disponibilité du service Octavia côté cloud n'est pas démontrée. Le client
 local ne reconnaît pas la commande `openstack loadbalancer`, ce qui prouve
@@ -218,13 +233,12 @@ pas modifier silencieusement cet AS-IS.
 
 ## 9. Contrôles préalables avant création de ressources
 
-Depuis un terminal OpenStack authentifié, exécuter et documenter avant M05/M06 :
+Depuis un terminal OpenStack authentifié, exécuter et documenter avant M06 :
 
 ```bash
 openstack limits show --absolute
 openstack server list
-openstack network list --external
-openstack router list
+openstack port list
 openstack security group rule list
 openstack catalog list
 ```
@@ -244,7 +258,8 @@ d'un apply.
 - confondre limites de quota et ressources réellement libres ;
 - déduire qu'une Floating IP fonctionne parce qu'un quota est affiché ;
 - tenter de gérer ou modifier le réseau externe partagé `prive` dans Terraform ;
-- choisir pour un réseau interne un CIDR qui chevauche `172.28.0.0/16` ;
+- demander réseaux/routeurs parce que les quotas les affichent alors que le
+  backend ne les fournit pas ;
 - réutiliser un security group existant sans lire ses règles ;
 - choisir un flavor de 4 vCPU qui rendrait la baseline impossible ;
 - considérer l'absence du plugin Octavia local comme une preuve absolue de
@@ -253,9 +268,10 @@ d'un apply.
 
 ## 11. Conclusion de M03
 
-Les quotas, flavors, images, réseau visible et security groups sont inventoriés.
-Les capacités d'exposition non démontrées sont explicitement exclues de la
-baseline, avec NodePort comme chemin de repli déjà prévu dans l'architecture.
+Les quotas, flavors, images, réseau provider et security groups sont
+inventoriés. Les tests M05 confirment une topologie provider-network-only.
+ADR-001 remplace les réseaux privés et le routeur par cinq ports sur `prive`,
+des security groups par rôle et l'overlay K3s.
 
-M04 est autorisée à concevoir les réseaux avec deux workers. Aucun apply ne sera
-autorisé sans le contrôle de l'usage réel et des propriétés du réseau existant.
+Aucun apply supplémentaire n'est autorisé sans un plan confirmant zéro réseau,
+zéro sous-réseau, zéro routeur et zéro destruction des SG existants.

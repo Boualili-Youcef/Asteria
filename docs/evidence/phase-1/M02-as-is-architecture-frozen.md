@@ -48,3 +48,22 @@ Aucun écart bloquant identifié.
 
 L'architecture AS-IS est figée et expliquée. Les critères de M02 sont satisfaits
 et l'inventaire OpenStack M03 peut commencer.
+
+## Amendement après diagnostic Neutron — 2026-07-15
+
+Le premier apply M05 a démontré que le tenant n'expose ni réseaux self-service
+ni routeur L3. `archi.md`, le fichier Mermaid figé et l'explication AS-IS ont
+été révisés conformément à ADR-001.
+
+La référence entreprise segmentée est conservée, tandis que le lab utilise
+`prive` comme underlay unique, des ports Neutron, cinq security groups et
+l'overlay K3s. Le PDF racine est désormais historique.
+
+Validation de la révision :
+
+```bash
+sed -n '2,$p' archi.md | sed '$d' | diff -u - \
+  docs/diagrams/as-is-architecture.mmd
+rg -n 'provider|security groups|Flannel|NodePort' \
+  docs/phase-1-as-is/01-as-is-architecture.md
+```

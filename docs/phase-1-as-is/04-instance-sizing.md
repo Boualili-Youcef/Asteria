@@ -18,15 +18,15 @@ rechercher comme data source et refuser une sélection ambiguë.
 
 | Instance | Flavor | vCPU | RAM | Disque flavor | Interfaces | Security groups |
 |---|---|---:|---:|---:|---|---|
-| `bastion-admin-01` | `normale` | 1 | 1 Go | 10 Go | `prive` + management | `asteria-bastion-sg` |
-| `k8s-control-plane-01` | `puissante` | 2 | 4 Go | 20 Go | application | `asteria-control-plane-sg` |
-| `k8s-worker-01` | `puissante` | 2 | 4 Go | 20 Go | application | worker + ingress SG |
-| `k8s-worker-02` | `puissante` | 2 | 4 Go | 20 Go | application | worker + ingress SG |
-| `db-postgres-01` | `puissante` | 2 | 4 Go | 20 Go | data | `asteria-postgres-sg` |
+| `bastion-admin-01` | `normale` | 1 | 1 Go | 10 Go | Port dédié sur `prive` | `asteria-bastion-sg` |
+| `k8s-control-plane-01` | `puissante` | 2 | 4 Go | 20 Go | Port dédié sur `prive` | `asteria-control-plane-sg` |
+| `k8s-worker-01` | `puissante` | 2 | 4 Go | 20 Go | Port dédié sur `prive` | worker + ingress SG |
+| `k8s-worker-02` | `puissante` | 2 | 4 Go | 20 Go | Port dédié sur `prive` | worker + ingress SG |
+| `db-postgres-01` | `puissante` | 2 | 4 Go | 20 Go | Port dédié sur `prive` | `asteria-postgres-sg` |
 | **Total** | — | **9** | **17 Go** | **90 Go** | — | — |
 
-La DMZ ne reçoit aucune VM dans la baseline NodePort. Elle représente une zone
-logique disponible, sans consommation compute.
+La DMZ, le management, l'application et la data sont des zones logiques portées
+par les SG. Le bastion n'est plus multi-homed.
 
 ## 4. Conformité aux quotas
 
@@ -47,7 +47,8 @@ validée.
 - un seul control plane, volontairement non HA ;
 - un seul PostgreSQL primaire, volontairement non HA ;
 - les workloads applicatifs seront planifiés sur les workers ;
-- le bastion est la seule VM directement reliée au réseau externe ;
+- les cinq VMs sont reliées à `prive` par des ports précréés ;
+- seul le bastion accepte SSH depuis le CIDR administrateur ;
 - les workers portent le SG Ingress en plus de leur SG Kubernetes ;
 - aucune ressource de réserve n'est créée.
 
@@ -56,7 +57,7 @@ validée.
 - le flavor `normale` laisse peu de RAM au bastion ;
 - la marge d'un seul vCPU interdit tout ajout non planifié ;
 - une consommation existante du tenant peut empêcher M06 ;
-- une interface directe du bastion sur `prive` doit être autorisée par le cloud ;
+- la création de ports sur `prive` doit réussir avant M06 ;
 - le stockage réel disponible n'est pas encore confirmé.
 
 ## 7. Validation attendue avant M06
