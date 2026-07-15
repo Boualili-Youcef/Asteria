@@ -17,8 +17,8 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 
 ## Phase actuelle
 
-M00 et M01 sont terminées. La prochaine mission est
-`M02 — Figer et expliquer l'architecture AS-IS`.
+M00 à M02 sont terminées. La prochaine mission est
+`M03 — Inventorier l'environnement OpenStack`.
 
 Aucune ressource OpenStack ne doit être créée avant l'inventaire M03, le design
 réseau M04 et la validation d'un plan Terraform en M05.
