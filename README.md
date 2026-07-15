@@ -17,8 +17,8 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 
 ## Phase actuelle
 
-M00 à M02 sont terminées. La prochaine mission est
-`M03 — Inventorier l'environnement OpenStack`.
+M00 à M03 sont terminées. La prochaine mission est
+`M04 — Concevoir les réseaux et security groups`.
 
 Aucune ressource OpenStack ne doit être créée avant l'inventaire M03, le design
 réseau M04 et la validation d'un plan Terraform en M05.

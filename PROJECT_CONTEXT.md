@@ -74,9 +74,9 @@ visuelle équivalente.
 
 Empreinte de référence : **5 instances, 9 vCPU et 17 Go de RAM**.
 
-Un troisième worker a été évoqué dans le matériau de cadrage. Il n'est pas
-retenu dans la baseline tant que M03 n'a pas confirmé des quotas supérieurs à
-la limite documentée de 10 vCPU et 20 Go de RAM.
+M03 a confirmé des quotas de 10 vCPU et 20 Go de RAM. Un troisième worker
+porterait l'empreinte à 11 vCPU et 21 Go : cette variante est rejetée. La
+baseline de phase 1 reste définitivement à deux workers.
 
 ### 4.3 Composants Kubernetes
 
@@ -101,16 +101,16 @@ la limite documentée de 10 vCPU et 20 Go de RAM.
 
 ## 5. Contraintes OpenStack
 
-La limite connue issue de l'architecture est :
+Les limites confirmées par l'inventaire M03 du 15 juillet 2026 sont :
 
 - 8 instances au maximum ;
 - 10 vCPU au maximum ;
 - 20 Go de RAM au maximum.
 
-Ces valeurs sont des hypothèses de travail jusqu'à l'inventaire M03. Aucun nom
-de flavor, d'image, de réseau externe, de pool de Floating IP ou de service
-Octavia ne doit être inventé. M03 doit capturer l'état réel du tenant avant
-l'écriture définitive de Terraform.
+Ces valeurs sont des limites maximales, pas une mesure de la capacité encore
+libre. La consommation actuelle doit être contrôlée avant tout apply. Aucun nom
+de réseau externe, pool de Floating IP ou service Octavia ne doit être inventé :
+M03 n'en a confirmé aucun dans la baseline exécutable.
 
 Principes obligatoires :
 

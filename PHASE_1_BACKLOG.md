@@ -15,7 +15,7 @@ L'ordre ci-dessous protège les dépendances.
 | M00 | Initialiser le dépôt et les fichiers de pilotage | Terminée | — |
 | M01 | Documenter le contexte entreprise | Terminée | M00 |
 | M02 | Figer et expliquer l'architecture AS-IS | Terminée | M01 |
-| M03 | Inventorier l'environnement OpenStack | À faire | M02 |
+| M03 | Inventorier l'environnement OpenStack | Terminée | M02 |
 | M04 | Concevoir les réseaux et security groups | À faire | M03 |
 | M05 | Écrire et appliquer Terraform réseau | À faire | M04 |
 | M06 | Créer les machines avec Terraform | À faire | M05 |
