@@ -151,3 +151,58 @@ Après plan, apply et contrôles :
 2. passer M05 à `Terminée` ;
 3. committer la preuve ;
 4. commencer M06 en attachant les VMs aux ports existants.
+
+## 10. M06 — Créer les machines
+
+M06 ajoute uniquement :
+
+- une keypair OpenStack construite depuis une clé publique locale ;
+- un bastion `normale` ;
+- un control plane, deux workers et PostgreSQL en flavor `puissante` ;
+- l'attachement de chaque VM à son port M05 existant.
+
+La clé privée n'est jamais lue par Terraform ni copiée dans le state.
+
+Préflight :
+
+```bash
+test -f ~/.ssh/tp_cloud.pub
+openstack limits show --absolute
+openstack server list
+openstack keypair list
+```
+
+Plan :
+
+```bash
+terraform fmt -recursive
+terraform validate
+terraform plan -out=m06-compute.tfplan
+terraform show -no-color m06-compute.tfplan
+```
+
+Le plan doit annoncer exactement six ajouts : une keypair et cinq instances.
+Il ne doit remplacer ni port ni security group et ne doit modifier aucune
+ressource M05.
+
+Apply après examen explicite :
+
+```bash
+terraform apply m06-compute.tfplan
+```
+
+Contrôles :
+
+```bash
+terraform output compute_instances
+openstack server list
+openstack server show bastion-admin-01
+openstack server show k8s-control-plane-01
+openstack server show k8s-worker-01
+openstack server show k8s-worker-02
+openstack server show db-postgres-01
+```
+
+Les cinq instances doivent être `ACTIVE`, utiliser l'image `ubuntu24.04`, les
+flavors attendus et exactement leur port M05. L'accès direct SSH doit rester
+limité au bastion.

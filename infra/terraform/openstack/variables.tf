@@ -33,3 +33,38 @@ variable "admin_cidrs" {
     error_message = "Fournir au moins un CIDR IPv4 valide entre /24 et /32 ; les réseaux larges sont interdits."
   }
 }
+
+variable "image_name" {
+  description = "Nom exact de l'image OpenStack commune aux cinq VMs."
+  type        = string
+  default     = "ubuntu24.04"
+}
+
+variable "bastion_flavor_name" {
+  description = "Flavor du bastion (1 vCPU / 1 Go dans la baseline)."
+  type        = string
+  default     = "normale"
+}
+
+variable "platform_flavor_name" {
+  description = "Flavor des nœuds Kubernetes et de PostgreSQL (2 vCPU / 4 Go)."
+  type        = string
+  default     = "puissante"
+}
+
+variable "ssh_public_key_path" {
+  description = "Chemin local de la clé SSH publique injectée dans les VMs."
+  type        = string
+  default     = "~/.ssh/tp_cloud.pub"
+
+  validation {
+    condition     = fileexists(pathexpand(var.ssh_public_key_path))
+    error_message = "La clé SSH publique indiquée doit exister sur la machine qui exécute Terraform."
+  }
+}
+
+variable "ssh_user" {
+  description = "Utilisateur cloud attendu pour l'image de référence."
+  type        = string
+  default     = "ubuntu"
+}

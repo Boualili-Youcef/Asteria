@@ -7,3 +7,8 @@ admin_cidrs = [
 
 external_network_name = "prive"
 name_prefix           = "asteria"
+image_name             = "ubuntu24.04"
+bastion_flavor_name    = "normale"
+platform_flavor_name   = "puissante"
+ssh_public_key_path    = "~/.ssh/tp_cloud.pub"
+ssh_user               = "ubuntu"

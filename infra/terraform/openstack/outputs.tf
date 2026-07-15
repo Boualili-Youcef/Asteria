@@ -47,3 +47,24 @@ output "exposure_mode" {
     octavia        = false
   }
 }
+
+output "compute_instances" {
+  description = "Identité, statut et adresse d'accès des cinq VMs M06."
+  value = {
+    for key, instance in openstack_compute_instance_v2.vm :
+    key => {
+      id            = instance.id
+      name          = instance.name
+      status        = instance.status
+      access_ip_v4  = instance.access_ip_v4
+      flavor_name   = instance.flavor_name
+      image_name    = instance.image_name
+      attached_port = local.instances[key].port_id
+    }
+  }
+}
+
+output "bastion_ssh" {
+  description = "Commande d'accès SSH attendue depuis le CIDR administrateur."
+  value       = "ssh -i ${trimsuffix(var.ssh_public_key_path, ".pub")} ${var.ssh_user}@${openstack_compute_instance_v2.vm["bastion"].access_ip_v4}"
+}
