@@ -55,7 +55,7 @@ output "compute_instances" {
     key => {
       id            = instance.id
       name          = instance.name
-      status        = instance.status
+      status        = instance.power_state
       access_ip_v4  = instance.access_ip_v4
       flavor_name   = instance.flavor_name
       image_name    = instance.image_name

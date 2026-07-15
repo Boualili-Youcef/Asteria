@@ -59,11 +59,28 @@ elle ne couvre aucune destruction ou modification des ressources M05.
 terraform fmt -check -recursive
 terraform init -backend=false -input=false
 terraform validate
-terraform plan -out=m06-compute.tfplan
-terraform show -no-color m06-compute.tfplan
+terraform plan -out=m06-compute-v2.tfplan
+terraform show -no-color m06-compute-v2.tfplan
 ```
 
 Plan acceptable : six ajouts, aucune modification et aucune destruction.
+
+## Première tentative de plan
+
+Le premier plan a correctement calculé :
+
+- une keypair et cinq instances à créer ;
+- zéro modification et zéro destruction ;
+- l'image, les flavors, les noms et les cinq ports attendus ;
+- aucune modification d'une ressource M05.
+
+Terraform a toutefois terminé en erreur avant l'apply : l'output
+`compute_instances` référençait `instance.status`, attribut non exposé par la
+ressource du provider 3.4.0. La valeur est corrigée vers
+`instance.power_state`.
+
+Aucune ressource n'a été créée par cette tentative. L'ancien plan ne doit pas
+être réutilisé ; un nouveau fichier `m06-compute-v2.tfplan` est requis.
 
 ## Apply et résultats
 

@@ -177,8 +177,8 @@ Plan :
 ```bash
 terraform fmt -recursive
 terraform validate
-terraform plan -out=m06-compute.tfplan
-terraform show -no-color m06-compute.tfplan
+terraform plan -out=m06-compute-v2.tfplan
+terraform show -no-color m06-compute-v2.tfplan
 ```
 
 Le plan doit annoncer exactement six ajouts : une keypair et cinq instances.
@@ -188,7 +188,7 @@ ressource M05.
 Apply après examen explicite :
 
 ```bash
-terraform apply m06-compute.tfplan
+terraform apply m06-compute-v2.tfplan
 ```
 
 Contrôles :
