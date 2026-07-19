@@ -1,0 +1,399 @@
+---
+- name: Préparer les trois nœuds K3s
+  hosts: kubernetes
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: Vérifier la plateforme et la topologie M09
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_major_version == "24"
+          - ansible_facts.architecture == "x86_64"
+          - groups.control_plane | length == 1
+          - groups.workers | length == 2
+        fail_msg: >-
+          M09 requiert Ubuntu 24.04 amd64, un control plane et deux workers.
+
+    - name: Mesurer le swap actif
+      ansible.builtin.command:
+        argv:
+          - swapon
+          - --noheadings
+      register: k3s_active_swap
+      changed_when: false
+
+    - name: Refuser un nœud avec swap actif
+      ansible.builtin.assert:
+        that:
+          - k3s_active_swap.stdout | trim == ""
+        fail_msg: >-
+          Un swap actif a été détecté. M09 ne le désactive pas silencieusement.
+
+  tasks:
+    - name: Installer les prérequis système K3s
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - conntrack
+          - curl
+          - iptables
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Charger les modules réseau au démarrage
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/99-asteria-k3s.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Charger les modules réseau maintenant
+      ansible.builtin.command:
+        argv:
+          - modprobe
+          - "{{ item }}"
+      loop:
+        - overlay
+        - br_netfilter
+      changed_when: false
+
+    - name: Configurer les paramètres réseau Kubernetes
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-asteria-k3s.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+      notify: Recharger les paramètres sysctl
+
+    - name: Créer le répertoire des sources d'installation
+      ansible.builtin.file:
+        path: /usr/local/src
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Télécharger le script K3s versionné et contrôlé
+      ansible.builtin.get_url:
+        url: >-
+          https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | replace('+', '%2B') }}/install.sh
+        dest: "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+        checksum: "sha256:{{ k3s_install_script_sha256 }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+  handlers:
+    - name: Recharger les paramètres sysctl
+      ansible.builtin.command:
+        argv:
+          - sysctl
+          - --system
+
+- name: Installer le control plane K3s non HA
+  hosts: control_plane
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Créer le répertoire de configuration K3s
+      ansible.builtin.file:
+        path: /etc/rancher/k3s
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Configurer le serveur K3s unique
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          # Géré par Ansible - M09 Asteria
+          write-kubeconfig-mode: "0600"
+          node-ip: "{{ ansible_host }}"
+          advertise-address: "{{ ansible_host }}"
+          tls-san:
+            - "{{ ansible_host }}"
+          flannel-backend: vxlan
+          flannel-iface: "{{ ansible_facts.default_ipv4.interface }}"
+          cluster-cidr: "{{ k3s_cluster_cidr }}"
+          service-cidr: "{{ k3s_service_cidr }}"
+          disable:
+            - traefik
+            - servicelb
+          node-taint:
+            - "node-role.kubernetes.io/control-plane=true:NoSchedule"
+      notify: Redémarrer K3s server
+
+    - name: Lire la version K3s éventuellement présente
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - --version
+      register: k3s_server_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Installer la version figée du serveur K3s
+      ansible.builtin.command:
+        argv:
+          - "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: server
+        INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+      when: >-
+        k3s_server_current_version.rc != 0 or
+        k3s_version not in k3s_server_current_version.stdout
+
+    - name: Appliquer les changements du serveur avant l'ajout des workers
+      ansible.builtin.meta: flush_handlers
+
+    - name: Attendre l'API Kubernetes
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 180
+
+    - name: Attendre le token agent généré par K3s
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/agent-token
+        state: present
+        timeout: 60
+
+    - name: Lire le token agent sans l'enregistrer dans Git
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/agent-token
+      register: k3s_agent_token
+      no_log: true
+
+  handlers:
+    - name: Redémarrer K3s server
+      ansible.builtin.service:
+        name: k3s
+        state: restarted
+
+- name: Joindre les deux workers au cluster
+  hosts: workers
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    k3s_server_host: "{{ groups.control_plane[0] }}"
+
+  tasks:
+    - name: Vérifier l'accès worker vers l'API
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[k3s_server_host].ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 60
+
+    - name: Créer le répertoire de configuration agent
+      ansible.builtin.file:
+        path: /etc/rancher/k3s
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Installer le token agent protégé
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/agent-token
+        content: >-
+          {{ hostvars[k3s_server_host].k3s_agent_token.content | b64decode | trim }}
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Redémarrer K3s agent
+      no_log: true
+
+    - name: Configurer l'agent K3s
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          # Géré par Ansible - M09 Asteria
+          server: "https://{{ hostvars[k3s_server_host].ansible_host }}:6443"
+          token-file: /etc/rancher/k3s/agent-token
+          node-ip: "{{ ansible_host }}"
+          flannel-iface: "{{ ansible_facts.default_ipv4.interface }}"
+      notify: Redémarrer K3s agent
+
+    - name: Lire la version K3s éventuellement présente
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - --version
+      register: k3s_agent_current_version
+      changed_when: false
+      failed_when: false
+
+    - name: Vérifier la présence du service agent
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - cat
+          - k3s-agent.service
+      register: k3s_agent_service
+      changed_when: false
+      failed_when: false
+
+    - name: Installer la version figée de l'agent K3s
+      ansible.builtin.command:
+        argv:
+          - "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: agent
+        INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+      when: >-
+        k3s_agent_current_version.rc != 0 or
+        k3s_version not in k3s_agent_current_version.stdout or
+        k3s_agent_service.rc != 0
+
+    - name: Appliquer les changements des agents
+      ansible.builtin.meta: flush_handlers
+
+    - name: Vérifier que l'agent est actif
+      ansible.builtin.service:
+        name: k3s-agent
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Redémarrer K3s agent
+      ansible.builtin.service:
+        name: k3s-agent
+        state: restarted
+
+- name: Protéger le kubeconfig et valider le cluster depuis le bastion
+  hosts: bastion
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    k3s_server_host: "{{ groups.control_plane[0] }}"
+    postgres_host_name: "{{ groups.postgres[0] }}"
+
+  tasks:
+    - name: Lire le kubeconfig administrateur sur le control plane
+      ansible.builtin.slurp:
+        src: /etc/rancher/k3s/k3s.yaml
+      delegate_to: "{{ k3s_server_host }}"
+      register: k3s_admin_kubeconfig
+      no_log: true
+
+    - name: Vérifier le répertoire kubeconfig du bastion
+      ansible.builtin.file:
+        path: /home/ubuntu/.kube
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0700"
+
+    - name: Installer le kubeconfig protégé sur le bastion
+      ansible.builtin.copy:
+        dest: /home/ubuntu/.kube/config
+        content: >-
+          {{ (k3s_admin_kubeconfig.content | b64decode)
+             | replace('https://127.0.0.1:6443',
+                       'https://' + hostvars[k3s_server_host].ansible_host + ':6443') }}
+        owner: ubuntu
+        group: ubuntu
+        mode: "0600"
+      no_log: true
+
+    - name: Déployer le test reproductible de l'overlay
+      ansible.builtin.copy:
+        src: ../scripts/m09-validate-overlay.sh
+        dest: /usr/local/sbin/asteria-m09-validate-overlay
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Attendre les trois nœuds Ready
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig=/home/ubuntu/.kube/config
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=240s
+      become_user: ubuntu
+      changed_when: false
+
+    - name: Relever les nœuds en sortie large
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig=/home/ubuntu/.kube/config
+          - get
+          - nodes
+          - --output=wide
+      become_user: ubuntu
+      register: k3s_nodes_wide
+      changed_when: false
+
+    - name: Relever les Pods de tous les namespaces
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig=/home/ubuntu/.kube/config
+          - get
+          - pods
+          - --all-namespaces
+          - --output=wide
+      become_user: ubuntu
+      register: k3s_pods_all
+      changed_when: false
+
+    - name: Vérifier les trois noms de nœuds attendus
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig=/home/ubuntu/.kube/config
+          - get
+          - nodes
+          - --output=jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}
+      become_user: ubuntu
+      register: k3s_node_names
+      changed_when: false
+      failed_when: >-
+        (k3s_node_names.stdout_lines | sort) !=
+        (([groups.control_plane[0]] + groups.workers) | sort)
+
+    - name: Vérifier DNS, overlay inter-workers et accès TCP à PostgreSQL
+      ansible.builtin.command:
+        argv:
+          - /usr/local/sbin/asteria-m09-validate-overlay
+      become_user: ubuntu
+      environment:
+        KUBECONFIG: /home/ubuntu/.kube/config
+        ASTERIA_M09_PROBE_IMAGE: "{{ k3s_overlay_test_image }}"
+        ASTERIA_POSTGRES_HOST: "{{ hostvars[postgres_host_name].ansible_host }}"
+      changed_when: false

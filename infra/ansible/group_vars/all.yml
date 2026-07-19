@@ -20,3 +20,12 @@ postgresql_service_accounts:
   - service: notifications-worker
     role: notifications_app
     database: notifications_db
+
+# Version K3s stable vérifiée le 19 juillet 2026. Le script est récupéré depuis
+# le tag Git correspondant et contrôlé avant exécution.
+k3s_version: "v1.36.2+k3s1"
+k3s_install_script_sha256: >-
+  46177d4c99440b4c0311b67233823a8e8a2fc09693f6c89af1a7161e152fbfad
+k3s_cluster_cidr: 10.42.0.0/16
+k3s_service_cidr: 10.43.0.0/16
+k3s_overlay_test_image: busybox:1.37.0
