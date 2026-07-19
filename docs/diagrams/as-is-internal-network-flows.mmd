@@ -1,0 +1,68 @@
+flowchart LR
+    subgraph ADMIN["Poste d'administration"]
+        A["Admin CIDRs autorises"]
+    end
+
+    subgraph DMZ["Zone d'administration / acces"]
+        B["Bastion<br/>SG: bastion"]
+    end
+
+    subgraph K8S["Cluster Kubernetes"]
+        CP["Control Plane<br/>SG: control_plane"]
+        W1["Worker 01<br/>SG: workers + ingress"]
+        W2["Worker 02<br/>SG: workers + ingress"]
+        ING["Ingress logique sur les workers<br/>SG: ingress<br/>NodePorts: 30080, 30443"]
+    end
+
+    subgraph DATA["Zone donnees"]
+        DB["PostgreSQL VM<br/>SG: postgres"]
+    end
+
+    subgraph DEST["Sorties IPv4"]
+        NET["Toute destination IPv4<br/>0.0.0.0/0"]
+    end
+
+    A -->|"TCP 22<br/>SSH"| B
+
+    B -->|"TCP 22<br/>SSH admin"| CP
+    B -->|"TCP 6443<br/>API Kubernetes"| CP
+    B -->|"TCP 22<br/>SSH admin"| W1
+    B -->|"TCP 22<br/>SSH admin"| W2
+    B -->|"TCP 30080<br/>HTTP prive via NodePort"| ING
+    B -->|"TCP 30443<br/>HTTPS prive via NodePort"| ING
+    B -->|"TCP 22<br/>SSH admin"| DB
+
+    ING -. "porte par" .-> W1
+    ING -. "porte par" .-> W2
+
+    W1 -->|"TCP 6443<br/>API Kubernetes"| CP
+    W2 -->|"TCP 6443<br/>API Kubernetes"| CP
+    W1 -->|"TCP 10250<br/>kubelet"| CP
+    W2 -->|"TCP 10250<br/>kubelet"| CP
+    W1 -->|"UDP 8472<br/>Flannel VXLAN"| CP
+    W2 -->|"UDP 8472<br/>Flannel VXLAN"| CP
+
+    CP -->|"TCP 10250<br/>kubelet"| W1
+    CP -->|"TCP 10250<br/>kubelet"| W2
+    CP -->|"UDP 8472<br/>Flannel VXLAN"| W1
+    CP -->|"UDP 8472<br/>Flannel VXLAN"| W2
+
+    W1 -->|"UDP 8472<br/>Flannel VXLAN"| W2
+    W2 -->|"UDP 8472<br/>Flannel VXLAN"| W1
+
+    W1 -->|"TCP 5432<br/>PostgreSQL"| DB
+    W2 -->|"TCP 5432<br/>PostgreSQL"| DB
+
+    B -->|"EGRESS IPv4<br/>Tous ports et protocoles"| NET
+    CP -->|"EGRESS IPv4<br/>Tous ports et protocoles"| NET
+    W1 -->|"EGRESS IPv4<br/>Tous ports et protocoles"| NET
+    W2 -->|"EGRESS IPv4<br/>Tous ports et protocoles"| NET
+    DB -->|"EGRESS IPv4<br/>Tous ports et protocoles"| NET
+
+    STATEFUL[["SG Neutron stateful<br/>Trafic retour autorise automatiquement"]]
+    DENY[["Tout ingress IPv4 non represente<br/>est refuse par les SG Asteria"]]
+
+    STATEFUL -.-> K8S
+    DENY -.-> DMZ
+    DENY -.-> K8S
+    DENY -.-> DATA

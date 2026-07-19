@@ -18,6 +18,10 @@ Les cinq VMs partagent `prive` : ces groupes constituent donc la principale
 segmentation de l'underlay et doivent être attachés aux ports précréés, jamais
 remplacés par le SG `default`.
 
+Le diagramme Mermaid détaillé des flux autorisés est disponible dans
+`docs/diagrams/as-is-internal-network-flows.mmd`. Il représente les règles
+Terraform actuelles, et non une architecture cible de phase 2.
+
 ## 2. Groupes
 
 | Nom | Attachement futur | Fonction |
