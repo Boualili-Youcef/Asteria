@@ -3,8 +3,9 @@
 ## Métadonnées
 
 - **Début :** 2026-07-15
+- **Clôture :** 2026-07-19
 - **Mission :** M06
-- **Résultat :** en cours
+- **Résultat :** réussi après correction config-drive
 
 ## Objectif
 
@@ -127,8 +128,30 @@ Le provider traite ce changement comme un remplacement de serveur. Un nouveau
 plan `m06-compute-v3.tfplan` doit donc être examiné avant toute action. Il doit
 remplacer uniquement les cinq instances et conserver les ports, SG et keypair.
 
+## Apply config-drive et validation finale
+
+L'utilisateur a appliqué le plan `m06-compute-v3.tfplan`, qui remplaçait
+uniquement les cinq instances. Le state final confirme pour chacune :
+
+- `power_state = active` ;
+- `config_drive = true` ;
+- image et flavor attendus ;
+- adresse du port M05 conservée.
+
+Le test administratif final a réussi :
+
+```text
+$ ssh -i ~/.ssh/tp_cloud ubuntu@<IP_BASTION> \
+    'hostname; cloud-init status'
+bastion-admin-01
+status: done
+```
+
+La clé publique est donc injectée, le chemin SSH autorisé fonctionne et
+cloud-init est terminé. Aucun UUID, IP ou secret n'est publié dans la preuve.
+
 ## Critère de clôture
 
-M06 reste `En cours` : l'état `ACTIVE` est atteint, mais l'accès administratif
-n'est pas fonctionnel. La mission ne sera clôturée qu'après remplacement avec
-config-drive et test SSH réussi. M07 reste interdite jusque-là.
+M06 est terminée : les cinq instances sont actives et conformes à la baseline,
+leurs ports M05 sont conservés et l'accès SSH au bastion est validé. M07 est
+maintenant autorisée.
