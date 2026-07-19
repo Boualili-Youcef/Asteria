@@ -6,3 +6,17 @@ helm_version: "4.2.0"
 
 # L'image M06 et les binaires ci-dessus sont utilisés en amd64.
 asteria_binary_architecture: amd64
+
+# M08 utilise la version majeure fournie par Ubuntu 24.04. Les correctifs de
+# sécurité mineurs restent gérés par les dépôts de la distribution.
+postgresql_major_version: "16"
+postgresql_service_accounts:
+  - service: identity-api
+    role: identity_app
+    database: identity_db
+  - service: orders-api
+    role: orders_app
+    database: orders_db
+  - service: notifications-worker
+    role: notifications_app
+    database: notifications_db

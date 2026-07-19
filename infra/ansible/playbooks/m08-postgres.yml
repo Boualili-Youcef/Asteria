@@ -1,0 +1,385 @@
+---
+- name: Installer PostgreSQL primaire hors du cluster
+  hosts: postgres
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    postgres_secret_dir: >-
+      {{ lookup('ansible.builtin.env', 'ASTERIA_POSTGRES_SECRET_DIR')
+         | default(playbook_dir + '/../../../.secrets/m08-postgres', true) }}
+    postgres_rotate_passwords: >-
+      {{ lookup('ansible.builtin.env', 'ASTERIA_POSTGRES_ROTATE_PASSWORDS')
+         | default('false', true) | bool }}
+    postgres_config_dir: "/etc/postgresql/{{ postgresql_major_version }}/main"
+    postgres_backup_root: /var/backups/asteria-postgresql
+
+  pre_tasks:
+    - name: Vérifier la plateforme et la topologie M08
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_major_version == "24"
+          - ansible_facts.architecture == "x86_64"
+          - groups.postgres | length == 1
+          - groups.workers | length == 2
+          - postgresql_service_accounts | length == 3
+        fail_msg: >-
+          M08 requiert Ubuntu 24.04 amd64, une VM PostgreSQL et deux workers.
+
+    - name: Vérifier les identifiants SQL statiques
+      ansible.builtin.assert:
+        that:
+          - item.role is match('^[a-z][a-z0-9_]+$')
+          - item.database is match('^[a-z][a-z0-9_]+$')
+        fail_msg: Les rôles et bases M08 doivent être des identifiants SQL simples.
+      loop: "{{ postgresql_service_accounts }}"
+      loop_control:
+        label: "{{ item.service }}"
+
+    - name: Créer le répertoire local ignoré pour les mots de passe M08
+      ansible.builtin.file:
+        path: "{{ postgres_secret_dir }}"
+        state: directory
+        mode: "0700"
+      delegate_to: localhost
+      become: false
+
+    - name: Charger ou générer les mots de passe des services
+      ansible.builtin.set_fact:
+        postgres_accounts_resolved: >-
+          {{ (postgres_accounts_resolved | default([]))
+             + [item | combine({'password': lookup(
+                 'ansible.builtin.password',
+                 postgres_secret_dir + '/' + item.role + '.password',
+                 length=32,
+                 chars=['ascii_letters', 'digits'])})] }}
+      loop: "{{ postgresql_service_accounts }}"
+      loop_control:
+        label: "{{ item.service }}"
+      no_log: true
+
+    - name: Vérifier les permissions des fichiers de mots de passe locaux
+      ansible.builtin.stat:
+        path: "{{ postgres_secret_dir }}/{{ item.role }}.password"
+      loop: "{{ postgresql_service_accounts }}"
+      loop_control:
+        label: "{{ item.role }}"
+      delegate_to: localhost
+      become: false
+      register: postgres_secret_files
+      no_log: true
+
+    - name: Confirmer que les mots de passe locaux sont protégés
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+          - item.stat.mode == "0600"
+        fail_msg: Un fichier de mot de passe M08 n'est pas protégé en mode 0600.
+      loop: "{{ postgres_secret_files.results }}"
+      no_log: true
+
+  tasks:
+    - name: Installer PostgreSQL depuis Ubuntu
+      ansible.builtin.apt:
+        name:
+          - "postgresql-{{ postgresql_major_version }}"
+          - "postgresql-client-{{ postgresql_major_version }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Vérifier le répertoire de configuration PostgreSQL attendu
+      ansible.builtin.stat:
+        path: "{{ postgres_config_dir }}"
+      register: postgres_config_dir_stat
+
+    - name: Refuser une version majeure PostgreSQL inattendue
+      ansible.builtin.assert:
+        that:
+          - postgres_config_dir_stat.stat.isdir | default(false)
+        fail_msg: >-
+          Le répertoire PostgreSQL {{ postgres_config_dir }} est absent ; ne pas
+          adapter silencieusement la version majeure.
+
+    - name: Configurer l'écoute et l'authentification PostgreSQL
+      ansible.builtin.copy:
+        dest: "{{ postgres_config_dir }}/conf.d/99-asteria.conf"
+        owner: postgres
+        group: postgres
+        mode: "0640"
+        content: |
+          # Géré par Ansible - M08 Asteria
+          listen_addresses = '127.0.0.1,{{ ansible_host }}'
+          password_encryption = 'scram-sha-256'
+          hba_file = '{{ postgres_config_dir }}/pg_hba_asteria.conf'
+      notify: Redémarrer PostgreSQL
+
+    - name: Autoriser uniquement chaque service depuis les deux workers
+      ansible.builtin.copy:
+        dest: "{{ postgres_config_dir }}/pg_hba_asteria.conf"
+        owner: postgres
+        group: postgres
+        mode: "0640"
+        content: |
+          # Géré par Ansible - M08 Asteria
+          # Administration locale uniquement par authentification peer.
+          local   all                 postgres                                peer
+          local   all                 all                                     peer
+          {% for account in postgresql_service_accounts %}
+          {% for worker in groups.workers %}
+          host    {{ '%-19s' | format(account.database) }} {{ '%-19s' | format(account.role) }} {{ hostvars[worker].ansible_host }}/32 scram-sha-256
+          {% endfor %}
+          {% endfor %}
+          # Toute autre source ou combinaison base/compte est refusée.
+          host    all                 all                 0.0.0.0/0             reject
+          host    all                 all                 ::/0                  reject
+      notify: Redémarrer PostgreSQL
+
+    - name: Déployer le script de sauvegarde basique
+      ansible.builtin.copy:
+        src: ../scripts/m08-postgres-backup.sh
+        dest: /usr/local/sbin/asteria-postgres-backup
+        owner: root
+        group: postgres
+        mode: "0750"
+
+    - name: Créer le répertoire des sauvegardes locales
+      ansible.builtin.file:
+        path: "{{ postgres_backup_root }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: Appliquer la configuration avant de créer les comptes
+      ansible.builtin.meta: flush_handlers
+
+    - name: Vérifier que PostgreSQL est actif
+      ansible.builtin.service:
+        name: postgresql
+        state: started
+        enabled: true
+
+    - name: Chercher les rôles de service existants
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --tuples-only
+          - --no-align
+          - --command
+          - "SELECT 1 FROM pg_roles WHERE rolname = '{{ item.role }}'"
+      become_user: postgres
+      loop: "{{ postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.role }}"
+      register: postgres_role_checks
+      changed_when: false
+
+    - name: Créer les rôles de service avec SCRAM-SHA-256
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --set=ON_ERROR_STOP=1
+      args:
+        stdin: |
+          SET password_encryption = 'scram-sha-256';
+          CREATE ROLE "{{ item.item.role }}"
+            LOGIN NOSUPERUSER INHERIT NOCREATEDB NOCREATEROLE NOREPLICATION
+            PASSWORD '{{ item.item.password | replace("'", "''") }}';
+      become_user: postgres
+      loop: "{{ postgres_role_checks.results }}"
+      loop_control:
+        label: "{{ item.item.role }}"
+      when: item.stdout | trim != "1"
+      no_log: true
+
+    - name: Faire tourner explicitement les mots de passe demandés
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --set=ON_ERROR_STOP=1
+      args:
+        stdin: |
+          SET password_encryption = 'scram-sha-256';
+          ALTER ROLE "{{ item.role }}"
+            PASSWORD '{{ item.password | replace("'", "''") }}';
+      become_user: postgres
+      loop: "{{ postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.role }}"
+      when: postgres_rotate_passwords
+      no_log: true
+
+    - name: Chercher les bases de service existantes
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --tuples-only
+          - --no-align
+          - --command
+          - "SELECT 1 FROM pg_database WHERE datname = '{{ item.database }}'"
+      become_user: postgres
+      loop: "{{ postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.database }}"
+      register: postgres_database_checks
+      changed_when: false
+
+    - name: Créer les bases séparées des services
+      ansible.builtin.command:
+        argv:
+          - createdb
+          - "--owner={{ item.item.role }}"
+          - "{{ item.item.database }}"
+      become_user: postgres
+      loop: "{{ postgres_database_checks.results }}"
+      loop_control:
+        label: "{{ item.item.database }}"
+      when: item.stdout | trim != "1"
+
+    - name: Limiter la connexion à chaque base à son propriétaire
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --set=ON_ERROR_STOP=1
+      args:
+        stdin: |
+          REVOKE ALL ON DATABASE "{{ item.database }}" FROM PUBLIC;
+          GRANT CONNECT, TEMPORARY ON DATABASE "{{ item.database }}" TO "{{ item.role }}";
+      become_user: postgres
+      loop: "{{ postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.database }}"
+      changed_when: false
+
+    - name: Vérifier le propriétaire de chaque base
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --tuples-only
+          - --no-align
+          - --command
+          - >-
+            SELECT pg_get_userbyid(datdba) FROM pg_database
+            WHERE datname = '{{ item.database }}'
+      become_user: postgres
+      loop: "{{ postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.database }}"
+      register: postgres_database_owners
+      changed_when: false
+      failed_when: postgres_database_owners.stdout | trim != item.role
+
+    - name: Produire une première sauvegarde locale
+      ansible.builtin.command:
+        argv:
+          - /usr/local/sbin/asteria-postgres-backup
+        creates: "{{ postgres_backup_root }}/.m08-initial-backup-complete"
+      become_user: postgres
+
+    - name: Marquer la sauvegarde initiale réussie
+      ansible.builtin.file:
+        path: "{{ postgres_backup_root }}/.m08-initial-backup-complete"
+        state: touch
+        owner: postgres
+        group: postgres
+        mode: "0600"
+        modification_time: preserve
+        access_time: preserve
+
+    - name: Confirmer l'écoute PostgreSQL sur le port attendu
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 5432
+        state: started
+        timeout: 15
+
+  handlers:
+    - name: Redémarrer PostgreSQL
+      ansible.builtin.service:
+        name: postgresql
+        state: restarted
+
+- name: Installer le client requis pour valider les sources Kubernetes
+  hosts: kubernetes
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Installer le client PostgreSQL de validation
+      ansible.builtin.apt:
+        name: "postgresql-client-{{ postgresql_major_version }}"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+- name: Valider les connexions autorisées depuis chaque worker
+  hosts: workers
+  become: false
+  gather_facts: false
+  vars:
+    postgres_host_name: "{{ groups.postgres[0] }}"
+
+  tasks:
+    - name: Se connecter à chaque base avec son propre compte
+      ansible.builtin.command:
+        argv:
+          - psql
+          - "--host={{ hostvars[postgres_host_name].ansible_host }}"
+          - "--dbname={{ item.database }}"
+          - "--username={{ item.role }}"
+          - --no-psqlrc
+          - --tuples-only
+          - --no-align
+          - --command=SELECT current_database(), current_user
+      environment:
+        PGPASSWORD: "{{ item.password }}"
+        PGCONNECT_TIMEOUT: "5"
+      loop: "{{ hostvars[postgres_host_name].postgres_accounts_resolved }}"
+      loop_control:
+        label: "{{ item.service }}"
+      changed_when: false
+      no_log: true
+
+- name: Valider le refus depuis le bastion et le control plane
+  hosts: bastion:control_plane
+  become: false
+  gather_facts: false
+  vars:
+    postgres_host_name: "{{ groups.postgres[0] }}"
+    postgres_test_account: >-
+      {{ hostvars[postgres_host_name].postgres_accounts_resolved[0] }}
+
+  tasks:
+    - name: Refuser une connexion valide provenant d'une source interdite
+      ansible.builtin.command:
+        argv:
+          - psql
+          - "--host={{ hostvars[postgres_host_name].ansible_host }}"
+          - "--dbname={{ postgres_test_account.database }}"
+          - "--username={{ postgres_test_account.role }}"
+          - --no-psqlrc
+          - --command=SELECT 1
+      environment:
+        PGPASSWORD: "{{ postgres_test_account.password }}"
+        PGCONNECT_TIMEOUT: "5"
+      register: postgres_forbidden_connection
+      changed_when: false
+      failed_when: postgres_forbidden_connection.rc == 0
+      no_log: true

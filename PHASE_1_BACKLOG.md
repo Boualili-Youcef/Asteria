@@ -20,7 +20,7 @@ L'ordre ci-dessous protège les dépendances.
 | M05 | Écrire et appliquer Terraform réseau | Terminée | M04 |
 | M06 | Créer les machines avec Terraform | Terminée | M05 |
 | M07 | Configurer le bastion | Terminée | M06 |
-| M08 | Installer PostgreSQL sur VM séparée | À faire | M07 |
+| M08 | Installer PostgreSQL sur VM séparée | Terminée | M07 |
 | M09 | Installer le cluster Kubernetes | À faire | M07 |
 | M10 | Installer l'Ingress et préparer les namespaces | À faire | M09 |
 | M11 | Déployer Redis partagé | À faire | M10 |

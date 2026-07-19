@@ -90,12 +90,22 @@ jq -n \
       hosts: [$bastion_name]
     },
     internal: {
+      children: ["kubernetes", "postgres"]
+    },
+    kubernetes: {
+      children: ["control_plane", "workers"]
+    },
+    control_plane: {
+      hosts: [$instances.control_plane.name]
+    },
+    workers: {
       hosts: [
-        $instances.control_plane.name,
         $instances.worker_01.name,
-        $instances.worker_02.name,
-        $instances.postgres.name
+        $instances.worker_02.name
       ]
+    },
+    postgres: {
+      hosts: [$instances.postgres.name]
     }
   }
 '
