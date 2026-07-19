@@ -1,0 +1,212 @@
+---
+- name: Configurer le bastion d'administration Asteria
+  hosts: bastion
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: Vérifier le système attendu
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.architecture == "x86_64"
+        fail_msg: >-
+          M07 supporte uniquement l'image Ubuntu amd64 validée pendant M06.
+
+  tasks:
+    - name: Installer les outils disponibles dans Ubuntu
+      ansible.builtin.apt:
+        name:
+          - ansible-core
+          - ca-certificates
+          - curl
+          - git
+          - gnupg
+          - jq
+          - openssh-client
+          - postgresql-client
+          - python3-openstackclient
+          - unzip
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Créer la racine des outils versionnés
+      ansible.builtin.file:
+        path: /opt/asteria/tools
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Créer le répertoire Terraform versionné
+      ansible.builtin.file:
+        path: "/opt/asteria/tools/terraform/{{ terraform_version }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Télécharger Terraform avec sa somme de contrôle officielle
+      ansible.builtin.get_url:
+        url: >-
+          https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_linux_{{ asteria_binary_architecture }}.zip
+        dest: >-
+          /opt/asteria/tools/terraform/terraform_{{ terraform_version }}_linux_{{ asteria_binary_architecture }}.zip
+        checksum: >-
+          sha256:https://releases.hashicorp.com/terraform/{{ terraform_version }}/terraform_{{ terraform_version }}_SHA256SUMS
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Extraire Terraform
+      ansible.builtin.unarchive:
+        src: >-
+          /opt/asteria/tools/terraform/terraform_{{ terraform_version }}_linux_{{ asteria_binary_architecture }}.zip
+        dest: "/opt/asteria/tools/terraform/{{ terraform_version }}"
+        remote_src: true
+        creates: "/opt/asteria/tools/terraform/{{ terraform_version }}/terraform"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Publier Terraform dans le PATH
+      ansible.builtin.file:
+        src: "/opt/asteria/tools/terraform/{{ terraform_version }}/terraform"
+        dest: /usr/local/bin/terraform
+        state: link
+        force: true
+
+    - name: Créer le répertoire kubectl versionné
+      ansible.builtin.file:
+        path: "/opt/asteria/tools/kubectl/{{ kubectl_version }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Installer kubectl avec sa somme de contrôle officielle
+      ansible.builtin.get_url:
+        url: >-
+          https://dl.k8s.io/release/v{{ kubectl_version }}/bin/linux/{{ asteria_binary_architecture }}/kubectl
+        dest: "/opt/asteria/tools/kubectl/{{ kubectl_version }}/kubectl"
+        checksum: >-
+          sha256:https://dl.k8s.io/release/v{{ kubectl_version }}/bin/linux/{{ asteria_binary_architecture }}/kubectl.sha256
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Publier kubectl dans le PATH
+      ansible.builtin.file:
+        src: "/opt/asteria/tools/kubectl/{{ kubectl_version }}/kubectl"
+        dest: /usr/local/bin/kubectl
+        state: link
+        force: true
+
+    - name: Créer le répertoire Helm versionné
+      ansible.builtin.file:
+        path: "/opt/asteria/tools/helm/{{ helm_version }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Télécharger l'archive Helm avec sa somme de contrôle officielle
+      ansible.builtin.get_url:
+        url: >-
+          https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ asteria_binary_architecture }}.tar.gz
+        dest: "/opt/asteria/tools/helm/helm-v{{ helm_version }}.tar.gz"
+        checksum: >-
+          sha256:https://get.helm.sh/helm-v{{ helm_version }}-linux-{{ asteria_binary_architecture }}.tar.gz.sha256sum
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Extraire Helm dans son répertoire versionné
+      ansible.builtin.unarchive:
+        src: "/opt/asteria/tools/helm/helm-v{{ helm_version }}.tar.gz"
+        dest: "/opt/asteria/tools/helm/{{ helm_version }}"
+        remote_src: true
+        creates: >-
+          /opt/asteria/tools/helm/{{ helm_version }}/linux-{{ asteria_binary_architecture }}/helm
+        owner: root
+        group: root
+
+    - name: Publier Helm dans le PATH
+      ansible.builtin.file:
+        src: >-
+          /opt/asteria/tools/helm/{{ helm_version }}/linux-{{ asteria_binary_architecture }}/helm
+        dest: /usr/local/bin/helm
+        state: link
+        force: true
+
+    - name: Créer les répertoires de configuration sans secret
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0700"
+      loop:
+        - /home/ubuntu/.config/openstack
+        - /home/ubuntu/.kube
+
+    - name: Désactiver les authentifications SSH non nécessaires
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-asteria.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Géré par Ansible - M07 Asteria
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          PubkeyAuthentication yes
+        validate: /usr/sbin/sshd -t -f %s
+      notify: Recharger SSH
+
+  handlers:
+    - name: Recharger SSH
+      ansible.builtin.service:
+        name: ssh
+        state: reloaded
+
+- name: Imposer le passage SSH par le bastion sur les VMs internes
+  hosts: internal
+  become: true
+  gather_facts: false
+  serial: 1
+
+  pre_tasks:
+    - name: Vérifier que l'inventaire contient un unique bastion
+      ansible.builtin.assert:
+        that:
+          - groups.bastion | length == 1
+          - hostvars[groups.bastion[0]].ansible_host is defined
+        fail_msg: Le contrôle SSH interne requiert exactement un bastion.
+
+  tasks:
+    - name: Restreindre SSH interne à la source du bastion
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/99-asteria.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Géré par Ansible - M07 Asteria
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PermitRootLogin no
+          PubkeyAuthentication yes
+          AllowUsers {{ ansible_user }}@{{ hostvars[groups.bastion[0]].ansible_host }}
+        validate: /usr/sbin/sshd -t -f %s
+      notify: Recharger SSH interne
+
+  handlers:
+    - name: Recharger SSH interne
+      ansible.builtin.service:
+        name: ssh
+        state: reloaded

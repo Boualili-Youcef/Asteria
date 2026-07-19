@@ -111,3 +111,21 @@ Après M06, compléter avec des tests de connexion autorisés et refusés :
 - worker vers PostgreSQL : succès ;
 - control plane vers PostgreSQL : refus ;
 - source non-bastion vers NodePorts : refus.
+
+## 9. Écart observé pendant M07
+
+M07 a démontré qu'une connexion SSH directe depuis la source administrateur
+atteignait le control plane, alors que le state Terraform confirmait à la fois
+`port_security_enabled = true`, l'unique SG du control plane et une règle
+TCP/22 dont la source est le SG bastion. La VM a vu la source administrateur
+réelle : le test ne passait pas par un ProxyJump implicite.
+
+La cause précise se situe dans le comportement effectif du réseau provider du
+lab et ne peut pas être attribuée à la déclaration Terraform. Il ne faut donc
+pas considérer les références inter-SG comme une frontière suffisante sur cet
+underlay sans test fonctionnel.
+
+M07 ajoute un contrôle compensatoire limité à l'administration SSH : les quatre
+VMs internes autorisent l'utilisateur cloud seulement depuis l'adresse du
+bastion. Les contrôles propres à PostgreSQL et Kubernetes seront validés dans
+M08 et M09, sans prétendre que cet écart Neutron est corrigé globalement.

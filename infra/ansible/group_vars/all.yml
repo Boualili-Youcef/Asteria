@@ -1,0 +1,8 @@
+---
+# Versions contrôlées des binaires installés hors des dépôts Ubuntu.
+terraform_version: "1.15.8"
+kubectl_version: "1.35.6"
+helm_version: "4.2.0"
+
+# L'image M06 et les binaires ci-dessus sont utilisés en amd64.
+asteria_binary_architecture: amd64

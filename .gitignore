@@ -23,6 +23,7 @@ override.tf.json
 
 # Ansible
 *.retry
+.ansible/
 
 # Python
 __pycache__/
