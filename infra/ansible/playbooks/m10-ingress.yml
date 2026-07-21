@@ -1,0 +1,396 @@
+---
+- name: Installer ingress-nginx et préparer les namespaces AS-IS
+  hosts: bastion
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    m10_manifest_root: "{{ playbook_dir }}/../../../k8s/current-state/ingress-nginx"
+    m10_values_content: >-
+      {{ lookup('ansible.builtin.file', m10_manifest_root + '/values.yaml') }}
+    m10_values_sha256: "{{ m10_values_content | hash('sha256') }}"
+    m10_desired_state: >-
+      {{ ingress_nginx_chart_version }}:{{ m10_values_sha256 }}
+    m10_required_namespaces:
+      - ingress-nginx
+      - team-identity
+      - team-orders
+      - team-notifications
+      - shared
+      - monitoring
+
+  pre_tasks:
+    - name: Vérifier que tous les nœuds M09 sont Ready
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=30s
+      changed_when: false
+
+    - name: Compter les nœuds du cluster
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - nodes
+          - --output=name
+      register: m10_nodes
+      changed_when: false
+
+    - name: Refuser une topologie différente de M09
+      ansible.builtin.assert:
+        that:
+          - m10_nodes.stdout_lines | length == 3
+          - groups.workers | length == 2
+        fail_msg: M10 requiert le control plane et les deux workers validés en M09.
+
+  tasks:
+    - name: Créer les namespaces logiques AS-IS
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m10_manifest_root + '/namespaces.yaml') }}"
+      register: m10_namespaces_apply
+      changed_when: >-
+        ' created' in m10_namespaces_apply.stdout or
+        ' configured' in m10_namespaces_apply.stdout
+
+    - name: Rendre le chart ingress-nginx officiel et versionné
+      ansible.builtin.command:
+        argv:
+          - helm
+          - template
+          - ingress-nginx
+          - ingress-nginx
+          - --repo
+          - https://kubernetes.github.io/ingress-nginx
+          - --version
+          - "{{ ingress_nginx_chart_version }}"
+          - --namespace
+          - ingress-nginx
+          - --kube-version
+          - "1.36.2"
+          - --include-crds
+          - --values
+          - "-"
+      args:
+        stdin: "{{ m10_values_content }}"
+      register: m10_ingress_rendered
+      changed_when: false
+
+    - name: Lire l'état de déploiement M10 enregistré
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - get
+          - configmap/asteria-m10-state
+          - --output=jsonpath={.data.desired-state}
+      register: m10_recorded_state
+      changed_when: false
+      failed_when: false
+
+    - name: Appliquer ingress-nginx lorsque la version ou les valeurs changent
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ m10_ingress_rendered.stdout }}"
+      register: m10_ingress_apply
+      changed_when: >-
+        ' created' in m10_ingress_apply.stdout or
+        ' configured' in m10_ingress_apply.stdout
+      when: m10_recorded_state.stdout != m10_desired_state
+
+    - name: Attendre le Secret du webhook d'admission
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - get
+          - secret/ingress-nginx-admission
+          - --output=name
+      register: m10_admission_secret
+      changed_when: false
+      retries: 36
+      delay: 5
+      until: m10_admission_secret.rc == 0
+
+    - name: Attendre le certificat injecté dans le webhook
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - validatingwebhookconfiguration/ingress-nginx-admission
+          - --output=jsonpath={.webhooks[0].clientConfig.caBundle}
+      register: m10_admission_ca
+      changed_when: false
+      retries: 36
+      delay: 5
+      until: m10_admission_ca.stdout | length > 20
+
+    - name: Attendre les deux contrôleurs ingress-nginx
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - rollout
+          - status
+          - deployment/ingress-nginx-controller
+          - --timeout=240s
+      changed_when: false
+
+    - name: Enregistrer la version et le checksum M10 appliqués
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: |
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: asteria-m10-state
+            namespace: ingress-nginx
+            labels:
+              app.kubernetes.io/part-of: asteria
+          data:
+            desired-state: "{{ m10_desired_state }}"
+      register: m10_state_apply
+      changed_when: >-
+        ' created' in m10_state_apply.stdout or
+        ' configured' in m10_state_apply.stdout
+
+    - name: Déployer l'endpoint de validation M10
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m10_manifest_root + '/test-endpoint.yaml') }}"
+      register: m10_endpoint_apply
+      changed_when: >-
+        ' created' in m10_endpoint_apply.stdout or
+        ' configured' in m10_endpoint_apply.stdout
+
+    - name: Attendre l'endpoint de validation
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - rollout
+          - status
+          - deployment/m10-test-endpoint
+          - --timeout=120s
+      changed_when: false
+
+    - name: Relever le type et les NodePorts du contrôleur
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - get
+          - service/ingress-nginx-controller
+          - --output=jsonpath={.spec.type}{" "}{.spec.ports[?(@.name=="http")].nodePort}{" "}{.spec.ports[?(@.name=="https")].nodePort}
+      register: m10_service_exposure
+      changed_when: false
+
+    - name: Vérifier l'exposition NodePort prévue
+      ansible.builtin.assert:
+        that:
+          - m10_service_exposure.stdout == "NodePort 30080 30443"
+        fail_msg: Le service ingress-nginx n'expose pas les NodePorts M04 attendus.
+
+    - name: Relever les namespaces créés
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - namespaces
+          - --output=jsonpath={range .items[*]}{.metadata.name}{"\n"}{end}
+      register: m10_namespaces
+      changed_when: false
+
+    - name: Confirmer les six namespaces M10
+      ansible.builtin.assert:
+        that:
+          - item in m10_namespaces.stdout_lines
+        fail_msg: "Le namespace {{ item }} est absent."
+      loop: "{{ m10_required_namespaces }}"
+
+    - name: Relever les Pods ingress-nginx
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - get
+          - pods
+          - --selector=app.kubernetes.io/component=controller,app.kubernetes.io/instance=ingress-nginx
+          - --output=jsonpath={range .items[*]}{.spec.nodeName}{"\n"}{end}
+      register: m10_ingress_pods
+      changed_when: false
+
+    - name: Confirmer un contrôleur sur chacun des deux workers
+      ansible.builtin.assert:
+        that:
+          - m10_ingress_pods.stdout_lines | unique | length == 2
+          - groups.workers | difference(m10_ingress_pods.stdout_lines) | length == 0
+        fail_msg: Les deux contrôleurs ne sont pas répartis sur les deux workers.
+
+    - name: Relever l'image du contrôleur ingress-nginx
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=ingress-nginx
+          - get
+          - deployment/ingress-nginx-controller
+          - --output=jsonpath={.spec.template.spec.containers[0].image}
+      register: m10_controller_image
+      changed_when: false
+
+    - name: Confirmer la version contrôlée ingress-nginx
+      ansible.builtin.assert:
+        that:
+          - ingress_nginx_controller_version in m10_controller_image.stdout
+        fail_msg: La version du contrôleur ingress-nginx n'est pas celle attendue.
+
+- name: Compenser la limite Neutron sur les NodePorts des workers
+  hosts: workers
+  become: true
+  gather_facts: false
+  vars:
+    m10_bastion_cidr: "{{ hostvars[groups.bastion[0]].ansible_host }}/32"
+
+  tasks:
+    - name: Déployer le contrôle NodePort avant la DNAT Kubernetes
+      ansible.builtin.copy:
+        src: ../scripts/m10-nodeport-firewall.sh
+        dest: /usr/local/sbin/asteria-nodeport-firewall
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Rendre le contrôle NodePort persistant au redémarrage
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/asteria-nodeport-firewall.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Asteria M10 - limiter les NodePorts au bastion
+          Wants=network-online.target
+          After=network-online.target
+          Before=k3s-agent.service
+
+          [Service]
+          Type=oneshot
+          ExecStart=/usr/local/sbin/asteria-nodeport-firewall {{ m10_bastion_cidr }}
+          RemainAfterExit=yes
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Recharger systemd
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Activer le contrôle NodePort persistant
+      ansible.builtin.service:
+        name: asteria-nodeport-firewall
+        state: started
+        enabled: true
+
+    - name: Réappliquer idempotemment le contrôle NodePort
+      ansible.builtin.command:
+        argv:
+          - /usr/local/sbin/asteria-nodeport-firewall
+          - "{{ m10_bastion_cidr }}"
+      changed_when: false
+
+    - name: Vérifier le saut PREROUTING vers la chaîne Asteria
+      ansible.builtin.command:
+        argv:
+          - iptables
+          - -w
+          - -t
+          - raw
+          - -C
+          - PREROUTING
+          - -p
+          - tcp
+          - -m
+          - multiport
+          - --dports
+          - 30080,30443
+          - -j
+          - ASTERIA_NODEPORTS
+      changed_when: false
+
+    - name: Vérifier l'autorisation du bastion dans la chaîne Asteria
+      ansible.builtin.command:
+        argv:
+          - iptables
+          - -w
+          - -t
+          - raw
+          - -C
+          - ASTERIA_NODEPORTS
+          - -s
+          - "{{ m10_bastion_cidr }}"
+          - -j
+          - RETURN
+      changed_when: false
+
+- name: Valider le chemin privé bastion vers ingress-nginx
+  hosts: bastion
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Tester HTTP depuis le bastion vers chaque worker
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item].ansible_host }}:30080/"
+        headers:
+          Host: "{{ m10_test_host }}"
+        return_content: true
+        status_code: 200
+        use_proxy: false
+      register: m10_http_result
+      failed_when: >-
+        m10_http_result.status != 200 or
+        'M10 ingress endpoint ready' not in m10_http_result.content
+      loop: "{{ groups.workers }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Tester HTTPS depuis le bastion vers chaque worker
+      ansible.builtin.uri:
+        url: "https://{{ hostvars[item].ansible_host }}:30443/"
+        headers:
+          Host: "{{ m10_test_host }}"
+        return_content: true
+        status_code: 200
+        use_proxy: false
+        validate_certs: false
+      register: m10_https_result
+      failed_when: >-
+        m10_https_result.status != 200 or
+        'M10 ingress endpoint ready' not in m10_https_result.content
+      loop: "{{ groups.workers }}"
+      loop_control:
+        label: "{{ item }}"

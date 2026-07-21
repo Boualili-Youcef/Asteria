@@ -129,3 +129,24 @@ M07 ajoute un contrôle compensatoire limité à l'administration SSH : les quat
 VMs internes autorisent l'utilisateur cloud seulement depuis l'adresse du
 bastion. Les contrôles propres à PostgreSQL et Kubernetes seront validés dans
 M08 et M09, sans prétendre que cet écart Neutron est corrigé globalement.
+
+## 10. Écart observé pendant M10
+
+Le premier test fonctionnel M10 a montré que TCP/30080 et TCP/30443 restaient
+joignables directement depuis le poste administrateur sur les deux workers,
+alors que `asteria-ingress-sg` référence seulement le SG du bastion. Ce résultat
+confirme que, sur le réseau provider du lab, la référence inter-SG ne suffit pas
+à démontrer l'isolement attendu. Une réponse HTTP, y compris une erreur de
+protocole sur le port TLS, constitue ici une preuve que le port est joignable.
+
+M10 ajoute donc sur chaque worker une chaîne `iptables` dans la table `raw`,
+avant la DNAT Kubernetes : les NodePorts 30080 et 30443 acceptent uniquement
+l'adresse `/32` du bastion et rejettent les autres sources. Le service systemd
+`asteria-nodeport-firewall.service` rend ce contrôle persistant et le playbook
+le réapplique de manière idempotente.
+
+Après cette compensation, les quatre chemins HTTP/HTTPS depuis le bastion ont
+répondu avec l'endpoint M10, tandis que les quatre tentatives directes depuis le
+poste administrateur ont expiré. Ce contrôle est limité aux deux NodePorts
+M10 ; il ne constitue ni une correction générale de Neutron, ni la conception
+d'un pare-feu cible de phase 2.

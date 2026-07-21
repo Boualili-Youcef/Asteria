@@ -1,0 +1,53 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/state: as-is
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-identity
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/owner: team-identity
+    asteria.io/state: as-is
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-orders
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/owner: team-orders
+    asteria.io/state: as-is
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: team-notifications
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/owner: team-notifications
+    asteria.io/state: as-is
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shared
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/owner: platform
+    asteria.io/state: as-is
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+  labels:
+    app.kubernetes.io/part-of: asteria
+    asteria.io/owner: platform
+    asteria.io/state: as-is

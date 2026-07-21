@@ -1,0 +1,43 @@
+controller:
+  kind: Deployment
+  replicaCount: 2
+
+  ingressClass: nginx
+  ingressClassResource:
+    name: nginx
+    enabled: true
+    default: false
+    controllerValue: k8s.io/ingress-nginx
+
+  allowSnippetAnnotations: false
+  config:
+    server-tokens: "false"
+
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+              app.kubernetes.io/instance: ingress-nginx
+              app.kubernetes.io/component: controller
+          topologyKey: kubernetes.io/hostname
+
+  service:
+    type: NodePort
+    externalTrafficPolicy: Local
+    nodePorts:
+      http: 30080
+      https: 30443
+
+  admissionWebhooks:
+    enabled: true
+
+  metrics:
+    enabled: false
+
+defaultBackend:
+  enabled: false

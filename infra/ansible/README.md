@@ -248,3 +248,56 @@ Résultat attendu : un control plane et deux workers `Ready`, les composants
 système K3s fonctionnels, aucun Traefik/ServiceLB, et le message
 `M09 connectivity checks passed`. Rejouer enfin le playbook ; hors test
 éphémère nettoyé, la configuration persistante attendue est idempotente.
+
+## M10 — Ingress commun et namespaces
+
+### But et décisions
+
+`m10-ingress.yml` crée les namespaces `ingress-nginx`, `team-identity`,
+`team-orders`, `team-notifications`, `shared` et `monitoring`, puis rend le chart
+officiel ingress-nginx `4.15.1`. Le contrôleur `v1.15.1` possède deux réplicas,
+un par worker, et son Service reste de type `NodePort` : HTTP utilise 30080 et
+HTTPS 30443. Aucun LoadBalancer Octavia ni Floating IP n'est créé.
+
+Le dépôt ingress-nginx officiel étant archivé, ce composant est conservé
+uniquement parce qu'il appartient à l'architecture AS-IS figée. Son remplacement
+et la stratégie de maintenance sont une dette de phase 2.
+
+Le réseau provider du lab n'ayant pas fait respecter la source inter-SG prévue,
+le playbook installe aussi `asteria-nodeport-firewall.service` sur les workers.
+Ce contrôle autorise les deux NodePorts seulement depuis l'adresse du bastion,
+avant la DNAT Kubernetes. Il est volontairement limité au chemin M10.
+
+### Exécution et validation
+
+Depuis la racine du dépôt, après les exports Ansible communs :
+
+```bash
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m10-ingress.yml --syntax-check
+
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m10-ingress.yml
+```
+
+Le playbook attend les deux contrôleurs, vérifie les six namespaces et les
+NodePorts, puis appelle l'endpoint `m10.asteria.local` en HTTP et HTTPS sur
+chaque worker depuis le bastion. Le HTTPS de validation utilise le certificat
+par défaut du contrôleur : M10 ne livre ni DNS public ni certificat métier.
+
+Contrôle manuel depuis le bastion :
+
+```bash
+kubectl -n ingress-nginx get deployment,pods,service,ingress -o wide
+curl --noproxy '*' -H 'Host: m10.asteria.local' \
+  http://<IP_WORKER>:30080/
+curl --noproxy '*' -k -H 'Host: m10.asteria.local' \
+  https://<IP_WORKER>:30443/
+```
+
+Les deux requêtes doivent retourner `M10 ingress endpoint ready`. Les mêmes
+requêtes lancées directement depuis le poste administrateur doivent expirer.
+Un second passage du playbook doit donner `changed=0` sur le bastion et les deux
+workers.
