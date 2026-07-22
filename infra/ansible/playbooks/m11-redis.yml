@@ -1,0 +1,240 @@
+---
+- name: Déployer et valider le Redis partagé AS-IS
+  hosts: bastion
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    m11_manifest: "{{ playbook_dir }}/../../../k8s/current-state/redis/redis.yaml"
+    m11_validation_script: >-
+      {{ playbook_dir }}/../scripts/m11-validate-redis.sh
+
+  pre_tasks:
+    - name: Vérifier que M10 a créé les namespaces consommateurs
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - namespace
+          - shared
+          - team-orders
+          - team-notifications
+          - --output=name
+      register: m11_namespaces
+      changed_when: false
+      failed_when: m11_namespaces.stdout_lines | length != 3
+
+    - name: Vérifier que les trois nœuds M09 sont Ready
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=30s
+      changed_when: false
+
+    - name: Vérifier que l'image du manifest correspond à la version contrôlée
+      ansible.builtin.assert:
+        that:
+          - "'image: ' + redis_image in lookup('ansible.builtin.file', m11_manifest)"
+        fail_msg: La version Redis du manifest diverge de group_vars/all.yml.
+
+  tasks:
+    - name: Valider le manifest avec l'API Kubernetes
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --dry-run=server
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m11_manifest) }}"
+      changed_when: false
+
+    - name: Appliquer le manifest Redis partagé
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m11_manifest) }}"
+      register: m11_apply
+      changed_when: >-
+        ' created' in m11_apply.stdout or
+        ' configured' in m11_apply.stdout
+
+    - name: Attendre que le volume Redis soit lié
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - get
+          - persistentvolumeclaim/redis-shared-data
+          - --output=jsonpath={.status.phase}
+      register: m11_pvc_phase
+      changed_when: false
+      retries: 60
+      delay: 3
+      until: m11_pvc_phase.stdout == "Bound"
+
+    - name: Attendre le Redis partagé
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - rollout
+          - status
+          - deployment/redis-shared
+          - --timeout=240s
+      changed_when: false
+
+    - name: Vérifier PING depuis le Pod Redis
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - exec
+          - deployment/redis-shared
+          - --
+          - redis-cli
+          - ping
+      register: m11_local_ping
+      changed_when: false
+      failed_when: m11_local_ping.stdout != "PONG"
+
+    - name: Relever la version Redis réellement exécutée
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - exec
+          - deployment/redis-shared
+          - --
+          - redis-cli
+          - info
+          - server
+      register: m11_server_info
+      changed_when: false
+      failed_when: >-
+        'redis_version:' + redis_version not in m11_server_info.stdout
+
+    - name: Relever l'exposition du Service Redis
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - get
+          - service/redis-shared
+          - --output=json
+      register: m11_service_exposure
+      changed_when: false
+
+    - name: Confirmer l'absence d'exposition hors cluster
+      ansible.builtin.assert:
+        that:
+          - (m11_service_exposure.stdout | from_json).spec.type == "ClusterIP"
+          - (m11_service_exposure.stdout | from_json).spec.ports[0].port == 6379
+          - "'nodePort' not in (m11_service_exposure.stdout | from_json).spec.ports[0]"
+        fail_msg: Redis doit rester un Service ClusterIP sans NodePort.
+
+    - name: Vérifier la persistance AOF configurée
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - exec
+          - deployment/redis-shared
+          - --
+          - redis-cli
+          - config
+          - get
+          - appendonly
+      register: m11_appendonly
+      changed_when: false
+      failed_when: "'yes' not in m11_appendonly.stdout_lines"
+
+    - name: Relever l'ACL AS-IS du compte par défaut
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - exec
+          - deployment/redis-shared
+          - --
+          - redis-cli
+          - acl
+          - list
+      register: m11_acl
+      changed_when: false
+      failed_when: >-
+        'user default on nopass' not in m11_acl.stdout or
+        '+@all' not in m11_acl.stdout
+
+    - name: Relever les NetworkPolicies du namespace shared
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=shared
+          - get
+          - networkpolicy
+          - --output=name
+      register: m11_network_policies
+      changed_when: false
+
+    - name: Confirmer l'isolation réseau faible attendue en phase 1
+      ansible.builtin.assert:
+        that:
+          - m11_network_policies.stdout == ""
+        fail_msg: Une NetworkPolicy inattendue masque la dette AS-IS de M11.
+
+    - name: Préparer le répertoire des scripts de validation sur le bastion
+      ansible.builtin.file:
+        path: /home/ubuntu/.local/bin
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0750"
+
+    - name: Déployer le test de connexion Redis inter-namespaces
+      ansible.builtin.copy:
+        src: "{{ m11_validation_script }}"
+        dest: /home/ubuntu/.local/bin/asteria-m11-validate-redis
+        owner: ubuntu
+        group: ubuntu
+        mode: "0750"
+
+    - name: Tester Redis depuis orders et notifications
+      ansible.builtin.command:
+        argv:
+          - /home/ubuntu/.local/bin/asteria-m11-validate-redis
+          - "{{ redis_image }}"
+      register: m11_connectivity
+      changed_when: false
+      failed_when: >-
+        m11_connectivity.rc != 0 or
+        'team-orders: PONG and shared key written' not in m11_connectivity.stdout or
+        'team-notifications: PONG and shared key read' not in m11_connectivity.stdout or
+        'M11 shared Redis checks passed' not in m11_connectivity.stdout
+
+    - name: Confirmer le nettoyage de chaque Pod de test
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace={{ item.namespace }}
+          - get
+          - pod/{{ item.pod }}
+          - --output=name
+      register: m11_test_pods
+      changed_when: false
+      failed_when: m11_test_pods.rc == 0
+      loop:
+        - namespace: team-orders
+          pod: m11-orders-check
+        - namespace: team-notifications
+          pod: m11-notifications-check
+      loop_control:
+        label: "{{ item.namespace }}/{{ item.pod }}"

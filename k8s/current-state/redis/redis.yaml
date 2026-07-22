@@ -1,0 +1,143 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-shared-config
+  namespace: shared
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis-shared
+    app.kubernetes.io/part-of: asteria
+data:
+  redis.conf: |
+    bind 0.0.0.0
+    protected-mode no
+    port 6379
+    dir /data
+    appendonly yes
+    appendfsync everysec
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: redis-shared-data
+  namespace: shared
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis-shared
+    app.kubernetes.io/part-of: asteria
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-shared
+  namespace: shared
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis-shared
+    app.kubernetes.io/part-of: asteria
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: redis
+      app.kubernetes.io/instance: redis-shared
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: redis
+        app.kubernetes.io/instance: redis-shared
+        app.kubernetes.io/part-of: asteria
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        fsGroupChangePolicy: OnRootMismatch
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: redis
+          image: redis:8.8.0-alpine3.23
+          imagePullPolicy: IfNotPresent
+          command:
+            - redis-server
+            - /usr/local/etc/redis/redis.conf
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 2
+          livenessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 2
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: config
+              mountPath: /usr/local/etc/redis/redis.conf
+              subPath: redis.conf
+              readOnly: true
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: config
+          configMap:
+            name: redis-shared-config
+            defaultMode: 0444
+        - name: data
+          persistentVolumeClaim:
+            claimName: redis-shared-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-shared
+  namespace: shared
+  labels:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis-shared
+    app.kubernetes.io/part-of: asteria
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: redis
+    app.kubernetes.io/instance: redis-shared
+  ports:
+    - name: redis
+      port: 6379
+      targetPort: redis
+      protocol: TCP

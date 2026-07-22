@@ -23,7 +23,7 @@ L'ordre ci-dessous protège les dépendances.
 | M08 | Installer PostgreSQL sur VM séparée | Terminée | M07 |
 | M09 | Installer le cluster Kubernetes | Terminée | M07 |
 | M10 | Installer l'Ingress et préparer les namespaces | Terminée | M09 |
-| M11 | Déployer Redis partagé | À faire | M10 |
+| M11 | Déployer Redis partagé | Terminée | M10 |
 | M12 | Déployer l'observabilité partielle | À faire | M10 |
 | M13 | Créer les trois applications | À faire | M08, M11 |
 | M14 | Déployer les applications de manière hétérogène | À faire | M12, M13 |

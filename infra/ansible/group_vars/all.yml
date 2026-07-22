@@ -35,3 +35,7 @@ ingress_nginx_chart_version: "4.15.1"
 ingress_nginx_controller_version: "v1.15.1"
 m10_test_host: m10.asteria.local
 m10_test_image: busybox:1.37.0
+
+# M11 reproduit le Redis unique et partagé de l'architecture AS-IS.
+redis_version: "8.8.0"
+redis_image: redis:8.8.0-alpine3.23

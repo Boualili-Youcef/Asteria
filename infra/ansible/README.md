@@ -301,3 +301,52 @@ Les deux requêtes doivent retourner `M10 ingress endpoint ready`. Les mêmes
 requêtes lancées directement depuis le poste administrateur doivent expirer.
 Un second passage du playbook doit donner `changed=0` sur le bastion et les deux
 workers.
+
+## M11 — Redis partagé
+
+### But et décisions
+
+`m11-redis.yml` déploie un Redis 8.8.0 unique dans `shared`, avec un PVC
+`local-path` de 1 Gi et un Service interne :
+
+```text
+redis-shared.shared.svc.cluster.local:6379
+```
+
+Le Service est strictement `ClusterIP` et n'ouvre aucun NodePort. La
+persistance AOF est activée, mais Redis reste sans TLS, sans mot de passe, sans
+ACL par équipe, sans réplication et sans NetworkPolicy. Ces limites reproduisent
+la dépendance partagée et faiblement isolée validée dans l'AS-IS.
+
+### Exécution et validation
+
+M10 doit être terminée afin que `shared`, `team-orders` et
+`team-notifications` existent :
+
+```bash
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m11-redis.yml --syntax-check
+
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m11-redis.yml
+```
+
+Le playbook valide le manifest côté serveur, attend le PVC et le Deployment,
+contrôle le Service, l'AOF, l'ACL `nopass` et l'absence de NetworkPolicy. Il
+crée ensuite deux Pods clients éphémères : Orders écrit une clé et Notifications
+la lit via le nom DNS commun. La clé et les deux Pods sont supprimés par un
+`trap`, même si le test échoue.
+
+Contrôle manuel depuis le bastion :
+
+```bash
+kubectl -n shared get deployment,pod,service,pvc -o wide
+kubectl -n shared exec deployment/redis-shared -- redis-cli ping
+~/.local/bin/asteria-m11-validate-redis redis:8.8.0-alpine3.23
+```
+
+Les résultats attendus sont `PONG`, les messages de succès pour les deux
+namespaces et `M11 shared Redis checks passed`. Le second passage du playbook
+doit donner `changed=0`.
