@@ -1,0 +1,32 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-provisioning
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/name: grafana
+    app.kubernetes.io/part-of: asteria
+data:
+  prometheus.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        uid: prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus.monitoring.svc.cluster.local:9090
+        isDefault: true
+        editable: true
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: Asteria AS-IS
+        orgId: 1
+        folder: Asteria
+        type: file
+        disableDeletion: false
+        editable: true
+        updateIntervalSeconds: 60
+        options:
+          path: /var/lib/grafana/dashboards

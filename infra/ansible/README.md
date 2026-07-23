@@ -350,3 +350,48 @@ kubectl -n shared exec deployment/redis-shared -- redis-cli ping
 Les résultats attendus sont `PONG`, les messages de succès pour les deux
 namespaces et `M11 shared Redis checks passed`. Le second passage du playbook
 doit donner `changed=0`.
+
+## M12 — Observabilité partielle
+
+### But et périmètre
+
+`m12-monitoring.yml` déploie dans `monitoring` :
+
+- Prometheus 3.12.0 avec une rétention éphémère de 24 heures ;
+- node-exporter 1.11.1 sur les trois nœuds ;
+- Grafana 13.1.0 avec un dashboard artisanal ;
+- un Ingress privé `grafana.asteria.local`.
+
+Cette mission ne déploie ni Alertmanager, ni règles d'alerte, ni Loki, ni
+collecteur de logs, ni SLO. Prometheus découvre uniquement les Services annotés
+et ses propres métriques. Le dashboard ne constitue pas un catalogue
+standardisé.
+
+### Exécution et validation
+
+```bash
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m12-monitoring.yml --syntax-check
+
+.venv/bin/ansible-playbook \
+  -i infra/ansible/inventory/terraform_inventory.sh \
+  infra/ansible/playbooks/m12-monitoring.yml
+```
+
+Le playbook vérifie trois node-exporters prêts, au moins quatre targets
+Prometheus `UP`, la présence du dashboard `Asteria AS-IS Nodes`, puis l'accès
+Grafana par les NodePorts des deux workers. La consultation Grafana est
+anonyme, mais reste limitée au chemin privé déjà protégé par M10.
+
+Contrôle manuel depuis le bastion :
+
+```bash
+kubectl -n monitoring get deployment,daemonset,pod,service,ingress -o wide
+~/.local/bin/asteria-m12-validate-monitoring busybox:1.37.0
+curl -H 'Host: grafana.asteria.local' \
+  http://<IP_WORKER>:30080/api/health
+```
+
+Un second passage doit donner `changed=0`. Les limites complètes sont
+documentées dans `monitoring/current-state/README.md`.

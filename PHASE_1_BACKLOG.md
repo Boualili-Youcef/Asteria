@@ -24,8 +24,8 @@ L'ordre ci-dessous protège les dépendances.
 | M09 | Installer le cluster Kubernetes | Terminée | M07 |
 | M10 | Installer l'Ingress et préparer les namespaces | Terminée | M09 |
 | M11 | Déployer Redis partagé | Terminée | M10 |
-| M12 | Déployer l'observabilité partielle | À faire | M10 |
-| M13 | Créer les trois applications | À faire | M08, M11 |
+| M12 | Déployer l'observabilité partielle | Terminée | M10 |
+| M13 | Créer les trois applications | En cours | M08, M11 |
 | M14 | Déployer les applications de manière hétérogène | À faire | M12, M13 |
 | M15 | Mettre en place le CI/CD hétérogène | À faire | M14 |
 | M16 | Auditer et documenter les problèmes AS-IS | À faire | M15 |

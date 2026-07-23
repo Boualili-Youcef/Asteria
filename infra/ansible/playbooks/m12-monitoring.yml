@@ -1,0 +1,261 @@
+---
+- name: Déployer et valider l'observabilité partielle AS-IS
+  hosts: bastion
+  become: false
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    m12_root: "{{ playbook_dir }}/../../../monitoring/current-state"
+    m12_manifests:
+      - rbac.yaml
+      - node-exporter.yaml
+      - prometheus.yaml
+      - grafana-provisioning.yaml
+      - grafana.yaml
+    m12_validation_script: >-
+      {{ playbook_dir }}/../scripts/m12-validate-monitoring.sh
+
+  pre_tasks:
+    - name: Vérifier le namespace créé par M10
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - namespace/monitoring
+          - --output=name
+      changed_when: false
+
+    - name: Vérifier que les trois nœuds M09 sont Ready
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=30s
+      changed_when: false
+
+    - name: Vérifier les versions d'images contrôlées
+      ansible.builtin.assert:
+        that:
+          - "'image: ' + prometheus_image in lookup('ansible.builtin.file', m12_root + '/prometheus.yaml')"
+          - "'image: ' + node_exporter_image in lookup('ansible.builtin.file', m12_root + '/node-exporter.yaml')"
+          - "'image: ' + grafana_image in lookup('ansible.builtin.file', m12_root + '/grafana.yaml')"
+        fail_msg: Une image M12 diverge de group_vars/all.yml.
+
+    - name: Confirmer l'absence de règles et d'Alertmanager
+      ansible.builtin.assert:
+        that:
+          - "'rule_files:' not in lookup('ansible.builtin.file', m12_root + '/prometheus.yml')"
+          - "'alerting:' not in lookup('ansible.builtin.file', m12_root + '/prometheus.yml')"
+          - "'alertmanager' not in lookup('ansible.builtin.file', m12_root + '/prometheus.yml') | lower"
+        fail_msg: M12 ne doit pas masquer l'absence d'alerting homogène.
+
+  tasks:
+    - name: Rendre la configuration Prometheus
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - create
+          - configmap
+          - prometheus-config
+          - --from-file=prometheus.yml=/dev/stdin
+          - --dry-run=client
+          - --output=yaml
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m12_root + '/prometheus.yml') }}"
+      register: m12_prometheus_config
+      changed_when: false
+
+    - name: Appliquer la configuration Prometheus
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ m12_prometheus_config.stdout }}"
+      register: m12_prometheus_config_apply
+      changed_when: >-
+        ' created' in m12_prometheus_config_apply.stdout or
+        ' configured' in m12_prometheus_config_apply.stdout
+
+    - name: Rendre le dashboard Grafana artisanal
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - create
+          - configmap
+          - grafana-dashboard-asteria-as-is
+          - --from-file=asteria-as-is-nodes.json=/dev/stdin
+          - --dry-run=client
+          - --output=yaml
+      args:
+        stdin: >-
+          {{ lookup('ansible.builtin.file',
+                    m12_root + '/dashboards/asteria-as-is-nodes.json') }}
+      register: m12_dashboard_config
+      changed_when: false
+
+    - name: Appliquer le dashboard Grafana artisanal
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ m12_dashboard_config.stdout }}"
+      register: m12_dashboard_apply
+      changed_when: >-
+        ' created' in m12_dashboard_apply.stdout or
+        ' configured' in m12_dashboard_apply.stdout
+
+    - name: Valider chaque manifest avec l'API Kubernetes
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --dry-run=server
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m12_root + '/' + item) }}"
+      changed_when: false
+      loop: "{{ m12_manifests }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Appliquer les composants d'observabilité
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - apply
+          - --filename=-
+      args:
+        stdin: "{{ lookup('ansible.builtin.file', m12_root + '/' + item) }}"
+      register: m12_apply
+      changed_when: >-
+        ' created' in m12_apply.stdout or
+        ' configured' in m12_apply.stdout
+      loop: "{{ m12_manifests }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Attendre node-exporter sur tous les nœuds
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - rollout
+          - status
+          - daemonset/node-exporter
+          - --timeout=240s
+      changed_when: false
+
+    - name: Attendre Prometheus
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - rollout
+          - status
+          - deployment/prometheus
+          - --timeout=240s
+      changed_when: false
+
+    - name: Attendre Grafana
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - rollout
+          - status
+          - deployment/grafana
+          - --timeout=240s
+      changed_when: false
+
+    - name: Relever le nombre de node-exporters prêts
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - get
+          - daemonset/node-exporter
+          - --output=jsonpath={.status.numberReady}{"/"}{.status.desiredNumberScheduled}
+      register: m12_node_exporter_ready
+      changed_when: false
+
+    - name: Confirmer la couverture des trois nœuds
+      ansible.builtin.assert:
+        that:
+          - m12_node_exporter_ready.stdout == "3/3"
+        fail_msg: node-exporter n'est pas prêt sur les trois nœuds.
+
+    - name: Préparer le répertoire des scripts sur le bastion
+      ansible.builtin.file:
+        path: /home/ubuntu/.local/bin
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: "0750"
+
+    - name: Déployer le test M12
+      ansible.builtin.copy:
+        src: "{{ m12_validation_script }}"
+        dest: /home/ubuntu/.local/bin/asteria-m12-validate-monitoring
+        owner: ubuntu
+        group: ubuntu
+        mode: "0750"
+
+    - name: Vérifier les targets et le dashboard depuis le cluster
+      ansible.builtin.command:
+        argv:
+          - /home/ubuntu/.local/bin/asteria-m12-validate-monitoring
+          - "{{ k3s_overlay_test_image }}"
+      register: m12_validation
+      changed_when: false
+      failed_when: >-
+        m12_validation.rc != 0 or
+        'Prometheus targets up:' not in m12_validation.stdout or
+        'Grafana dashboard visible: Asteria AS-IS Nodes' not in m12_validation.stdout or
+        'M12 monitoring checks passed' not in m12_validation.stdout
+
+    - name: Tester Grafana par ingress-nginx depuis le bastion
+      ansible.builtin.uri:
+        url: "http://{{ hostvars[item].ansible_host }}:30080/api/health"
+        headers:
+          Host: "{{ m12_grafana_host }}"
+        return_content: true
+        status_code: 200
+        use_proxy: false
+      register: m12_grafana_ingress
+      failed_when: >-
+        m12_grafana_ingress.status != 200 or
+        'database' not in m12_grafana_ingress.content or
+        'ok' not in m12_grafana_ingress.content
+      loop: "{{ groups.workers }}"
+      loop_control:
+        label: "{{ item }}"
+
+    - name: Relever les composants présents dans monitoring
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --namespace=monitoring
+          - get
+          - all
+          - --output=name
+      register: m12_components
+      changed_when: false
+
+    - name: Confirmer les absences AS-IS documentées
+      ansible.builtin.assert:
+        that:
+          - "'alertmanager' not in m12_components.stdout | lower"
+          - "'loki' not in m12_components.stdout | lower"
+          - "'fluent-bit' not in m12_components.stdout | lower"
+          - "'vector' not in m12_components.stdout | lower"
+        fail_msg: Un composant inattendu masque une dette M12.
