@@ -17,10 +17,10 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 
 ## Phase actuelle
 
-M00 à M04 sont terminées. M05 est en cours : Terraform est préparé, mais les
-validations, le nouveau plan provider-network-only et l'apply restent à exécuter
-par l'utilisateur. La décision est documentée dans
-`docs/adr/ADR-001-provider-network-fallback.md`.
+M00 à M13 sont terminées. L'infrastructure AS-IS comprend désormais les cinq
+VM, PostgreSQL, le cluster K3s, ingress-nginx, Redis partagé et une observabilité
+partielle. Les trois applications minimales sont testées et conteneurisables,
+mais ne sont pas encore déployées dans Kubernetes.
 
-Aucune ressource OpenStack ne doit être créée avant l'inventaire M03, le design
-réseau M04 et la validation d'un plan Terraform en M05.
+M14 — déployer les applications de manière hétérogène — est la prochaine
+mission autorisée. Elle reste à démarrer.
