@@ -26,8 +26,8 @@ L'ordre ci-dessous protège les dépendances.
 | M11 | Déployer Redis partagé | Terminée | M10 |
 | M12 | Déployer l'observabilité partielle | Terminée | M10 |
 | M13 | Créer les trois applications | Terminée | M08, M11 |
-| M14 | Déployer les applications de manière hétérogène | À faire | M12, M13 |
-| M15 | Mettre en place le CI/CD hétérogène | À faire | M14 |
+| M14 | Déployer les applications de manière hétérogène | Terminée | M12, M13 |
+| M15 | Mettre en place le CI/CD hétérogène | En cours | M14 |
 | M16 | Auditer et documenter les problèmes AS-IS | À faire | M15 |
 
 ## M00 — Initialiser le dépôt et les fichiers de pilotage

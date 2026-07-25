@@ -1,0 +1,6 @@
+apiVersion: v2
+name: orders-api
+description: Chart interne AS-IS propre au service Orders
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

@@ -17,10 +17,9 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 
 ## Phase actuelle
 
-M00 à M13 sont terminées. L'infrastructure AS-IS comprend désormais les cinq
+M00 à M14 sont terminées. L'infrastructure AS-IS comprend désormais les cinq
 VM, PostgreSQL, le cluster K3s, ingress-nginx, Redis partagé et une observabilité
-partielle. Les trois applications minimales sont testées et conteneurisables,
-mais ne sont pas encore déployées dans Kubernetes.
+partielle. Les trois applications minimales sont déployées dans Kubernetes par
+trois méthodes volontairement différentes.
 
-M14 — déployer les applications de manière hétérogène — est la prochaine
-mission autorisée. Elle reste à démarrer.
+M15 — mettre en place le CI/CD hétérogène — est la mission en cours.
