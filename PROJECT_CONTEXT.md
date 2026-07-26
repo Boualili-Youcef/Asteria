@@ -95,10 +95,13 @@ baseline de phase 1 reste définitivement à deux workers.
 
 - PostgreSQL s'exécute sur une VM séparée, sans réplication ni haute
   disponibilité ;
-- les sauvegardes sont irrégulières et leur restauration n'est pas testée ;
-- les pipelines CI/CD diffèrent selon les applications ;
-- le registre du lab sera GHCR ou un registre conteneurisé selon les moyens
-  réellement disponibles ;
+- une sauvegarde PostgreSQL initiale existe localement sur la VM, sans
+  planification, copie objet ni restauration testée ;
+- deux pipelines GitHub Actions distincts livrent Identity et Orders, tandis
+  que Notifications reste hors runner ;
+- GHCR est le registre retenu par M15 pour Identity et Orders ;
+- les workloads M14 exécutent encore les images M13 importées manuellement :
+  les images GHCR publiées ne sont pas déployées automatiquement ;
 - les opérations et audits passent par le bastion depuis le réseau
   d'entreprise simulé.
 

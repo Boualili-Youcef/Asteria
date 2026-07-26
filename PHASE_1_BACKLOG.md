@@ -28,7 +28,7 @@ L'ordre ci-dessous protège les dépendances.
 | M13 | Créer les trois applications | Terminée | M08, M11 |
 | M14 | Déployer les applications de manière hétérogène | Terminée | M12, M13 |
 | M15 | Mettre en place le CI/CD hétérogène | Terminée | M14 |
-| M16 | Auditer et documenter les problèmes AS-IS | En cours | M15 |
+| M16 | Auditer et documenter les problèmes AS-IS | Terminée | M15 |
 
 ## M00 — Initialiser le dépôt et les fichiers de pilotage
 

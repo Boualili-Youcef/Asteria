@@ -17,10 +17,18 @@ ultérieure portera l'audit et la modernisation de cette architecture.
 
 ## Phase actuelle
 
-M00 à M15 sont terminées. L'infrastructure AS-IS comprend désormais les cinq
-VM, PostgreSQL, le cluster K3s, ingress-nginx, Redis partagé et une observabilité
-partielle. Les trois applications minimales sont déployées dans Kubernetes par
-trois méthodes volontairement différentes. Leur livraison utilise deux
-workflows GitHub Actions distincts et un chemin opérateur manuel.
+M00 à M16 sont terminées et la phase 1 AS-IS est clôturée. L'infrastructure
+comprend les cinq VM, PostgreSQL, le cluster K3s, ingress-nginx, Redis partagé
+et une observabilité partielle. Les trois applications minimales sont déployées
+dans Kubernetes par trois méthodes volontairement différentes. Leur livraison
+utilise deux workflows GitHub Actions distincts et un chemin opérateur manuel.
 
-M16 — auditer et documenter les problèmes AS-IS — est la mission en cours.
+L'audit final se trouve dans :
+
+- `docs/phase-1-as-is/06-deployment-methods.md` ;
+- `docs/phase-1-as-is/07-observability-as-is.md` ;
+- `docs/phase-1-as-is/08-as-is-known-issues.md` ;
+- `docs/evidence/phase-1/M16-as-is-audit-complete.md`.
+
+La phase 2 TO-BE n'est pas démarrée et nécessite une approbation explicite de
+son périmètre.

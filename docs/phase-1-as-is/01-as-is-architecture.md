@@ -110,10 +110,10 @@ Les NetworkPolicies restent peu nombreuses en phase 1. Cette dette ne doit pas
 |---|---|
 | DNS public | Référence du flux entreprise, non raccordé publiquement au lab |
 | Dépôts Git | Sources applicatives et infra |
-| Runners CI | Pipelines externes ou partagés |
-| Registre | Images, via GHCR ou registre conteneurisé |
+| Runners CI | GitHub Actions pour Identity et Orders |
+| Registre | GHCR pour les images M15 Identity et Orders |
 | Artefacts CI | Rapports et packages partiels |
-| Stockage objet | Sauvegardes PostgreSQL irrégulières |
+| Stockage objet | Référence entreprise, non déployée dans le lab |
 
 ## 7. Inventaire des flux
 
@@ -159,8 +159,9 @@ OpenStack autorisés sur 5432/TCP.
 
 - identity : build/push sans scan ;
 - orders : tests/build/push sans SBOM ;
-- notifications : build/déploiement manuel ;
-- les nœuds téléchargent les images depuis le registre.
+- notifications : build local et déploiement manuel ;
+- les images M13 sont importées manuellement sur les nœuds ;
+- les images GHCR M15 ne mettent pas à jour les workloads M14.
 
 ### 7.6 Sécurité et audit
 
@@ -175,8 +176,8 @@ dashboards manuels, et les logs sont souvent lus avec `kubectl logs`.
 
 ### 7.8 Sauvegarde
 
-`PostgreSQL → stockage objet`, avec sauvegardes irrégulières et restauration non
-testée.
+Le lab possède une sauvegarde PostgreSQL initiale locale sur la VM. Aucune
+planification, copie vers un stockage objet ou restauration n'est démontrée.
 
 ## 8. Dettes et limitations
 
@@ -189,7 +190,7 @@ testée.
 | Données | PostgreSQL unique et Redis partagé |
 | Livraison | Méthodes hétérogènes, aucun GitOps commun |
 | Observabilité | Métriques partielles, logs non centralisés |
-| Reprise | Restore non testé |
+| Reprise | sauvegarde DB initiale locale, zéro snapshot K3s, restores non testés |
 
 ## 9. Tests attendus
 

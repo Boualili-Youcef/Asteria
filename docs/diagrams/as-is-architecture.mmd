@@ -13,9 +13,9 @@ flowchart TB
     subgraph EXT[Services externes et partages]
         DNS[DNS public reel]
         Git[Repos Git]
-        CIHosted[CI runners externes ou partages<br/>peu standardises]
-        Reg[Registry historique logique<br/>Lab: GHCR ou registry conteneurisee]
-        Obj[Stockage objet backups<br/>Entreprise: S3/Azure Blob/Swift<br/>Lab: MinIO ou stockage gratuit]
+        CIHosted[GitHub Actions<br/>deux workflows specifiques]
+        Reg[GHCR lab<br/>Identity + Orders publies en M15]
+        Obj[Stockage objet backups<br/>Reference entreprise<br/>non deploye dans le lab]
         Artifacts[Artefacts CI/CD<br/>reports partiels, packages<br/>SBOM non systematique]
     end
 
@@ -34,6 +34,7 @@ flowchart TB
                     CP[control-plane-01<br/>2 vCPU / 4GB<br/>SG control-plane]
                     W1[worker-01<br/>2 vCPU / 4GB<br/>SG workers + ingress]
                     W2[worker-02<br/>2 vCPU / 4GB<br/>SG workers + ingress]
+                    M13Images[Images M13 locales<br/>importees manuellement dans containerd<br/>sur les trois noeuds]
 
                     Ingress[namespace ingress-nginx<br/>NGINX Ingress Controller<br/>NodePort 30080 / 30443<br/>accessible depuis bastion]
 
@@ -63,6 +64,7 @@ flowchart TB
 
             subgraph DATAZONE[Zone data logique]
                 DB[(PostgreSQL VM separee<br/>2 vCPU / 4GB<br/>primary seul, pas de HA<br/>SG postgres)]
+                DBBackup[(Sauvegarde initiale locale<br/>pas de planification<br/>restore non teste)]
             end
         end
     end
@@ -95,10 +97,10 @@ flowchart TB
     Devs --> ManualDeploy[notifications<br/>build/deploy manuel]
     CIIdentity --> Reg
     CIOrders --> Reg
-    ManualDeploy --> Reg
-    Reg --> CP
-    Reg --> W1
-    Reg --> W2
+    ManualDeploy --> M13Images
+    M13Images --> Identity
+    M13Images --> Orders
+    M13Images --> Notif
     CIIdentity -. rapports partiels .-> Artifacts
     CIOrders -. rapports partiels .-> Artifacts
 
@@ -121,21 +123,23 @@ flowchart TB
     Orders -. kubectl logs manuel .-> Logs
     Notif -. kubectl logs manuel .-> Logs
 
-    DB -. backups irreguliers .-> Obj
+    DB --> DBBackup
+    DBBackup -. aucune copie objet .-> Obj
 
     D1[[Dette AS-IS: CI/CD heterogene<br/>pas de golden path]]
     D2[[Dette AS-IS: pas de GitOps commun<br/>deploiements directs possibles]]
     D3[[Dette AS-IS: securite K8s incomplete<br/>RBAC partiel, peu de NetworkPolicies]]
     D4[[Dette AS-IS: observabilite partielle<br/>pas de SLO ni alerting homogene]]
-    D5[[Dette AS-IS: backups presents<br/>restore non teste]]
+    D5[[Dette AS-IS: backup DB initial local<br/>pas de snapshots K3s ni restore teste]]
     L1[[Limite lab: underlay plat partage<br/>segmentation compensee par SG + overlay K3s]]
     L2[[Limite lab: 5 instances / 9 vCPU / 17GB RAM<br/>production reelle plus large et HA]]
 
     CIHosted -.-> D1
     ManualDeploy -.-> D1
+    Reg -. images M15 non deployeees .-> D2
     CP -.-> D2
     K8S -.-> D3
     MON -.-> D4
-    DB -.-> D5
+    DBBackup -.-> D5
     ProviderNet -.-> L1
     LAB -.-> L2
