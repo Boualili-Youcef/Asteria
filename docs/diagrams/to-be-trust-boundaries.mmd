@@ -1,0 +1,109 @@
+flowchart LR
+    ExternalUser[Client B2B ou attaquant externe]
+    Admin[Administrateur]
+    Developer[Developpeur]
+
+    subgraph IDP[Service d identite externe ou partage]
+        Identity[OIDC et MFA]
+    end
+
+    subgraph DELIVERY[Frontiere supply chain]
+        Source[Git]
+        CI[CI controlee]
+        Registry[Registre par digest]
+        Desired[Source de verite CD]
+    end
+
+    subgraph PROJECT_TARGET[Projet OpenStack cible - role a confirmer T02]
+        Access[Plan d acces privilegie]
+        Edge[Gateway TLS]
+
+        subgraph CLUSTER[Frontiere Kubernetes]
+            Policy[Admission et RBAC]
+
+            subgraph NS_ID[Namespace Identity]
+                IdentityAPI[identity-api]
+            end
+
+            subgraph NS_ORD[Namespace Orders]
+                OrdersAPI[orders-api]
+            end
+
+            subgraph NS_NOT[Namespace Notifications]
+                Worker[notifications-worker]
+            end
+
+            subgraph NS_DATA[Frontiere services data]
+                Cache[Cache]
+                Bus[Bus durable]
+            end
+
+            subgraph NS_OBS[Frontiere observabilite]
+                Telemetry[Metrics logs traces et audit]
+            end
+
+            Secrets[Plan de secrets]
+        end
+
+        Postgres[(PostgreSQL)]
+    end
+
+    subgraph RECOVERY[Domaine logique de sauvegarde distinct]
+        Backup[Backups chiffres et catalogue]
+    end
+
+    subgraph PROJECT_SOURCE[Projet OpenStack AS-IS pendant migration]
+        Existing[Plateforme source preservee]
+    end
+
+    ExternalUser -->|TB-01 reseau non fiable| Edge
+    ExternalUser -->|TB-02 jeton et tenant| Identity
+    Edge -->|TB-03 edge vers workloads| IdentityAPI
+    Edge -->|TB-03 edge vers workloads| OrdersAPI
+    Identity -->|TB-02 identite verifiee| Edge
+
+    OrdersAPI -->|TB-04 flux data explicite| Postgres
+    IdentityAPI -->|TB-04 flux data explicite| Postgres
+    Worker -->|TB-04 flux data explicite| Postgres
+    OrdersAPI -->|TB-04 cache et evenement| Cache
+    OrdersAPI -->|TB-04 evenement durable| Bus
+    Bus -->|TB-04 consommation| Worker
+
+    Admin -->|TB-05 identite privilegiee| Identity
+    Identity --> Access
+    Access -->|TB-05 session courte auditee| CLUSTER
+    Access -->|TB-05 session courte auditee| Postgres
+
+    Developer -->|TB-06 changement revu| Source
+    Source --> CI --> Registry
+    CI --> Desired
+    Desired -->|TB-06 reconciliation| CLUSTER
+    Registry -->|TB-06 artefact verifie| CLUSTER
+
+    Secrets -->|TB-07 secret court et limite| IdentityAPI
+    Secrets -->|TB-07 secret court et limite| OrdersAPI
+    Secrets -->|TB-07 secret court et limite| Worker
+    Policy -. controle admission .-> NS_ID
+    Policy -. controle admission .-> NS_ORD
+    Policy -. controle admission .-> NS_NOT
+
+    CLUSTER -->|TB-08 telemetrie minimisee| Telemetry
+    Postgres -->|TB-08 telemetrie minimisee| Telemetry
+    Postgres -->|TB-09 sauvegarde chiffree| Backup
+    Secrets -->|TB-09 snapshot chiffre| Backup
+    CLUSTER -->|TB-09 etat recuperable| Backup
+
+    Existing <-.->|TB-10 aucun transit implicite| PROJECT_TARGET
+
+    classDef actor fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
+    classDef security fill:#f3e8ff,stroke:#7e22ce,color:#581c87;
+    classDef workload fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef data fill:#ffedd5,stroke:#c2410c,color:#7c2d12;
+    classDef delivery fill:#fef3c7,stroke:#b45309,color:#78350f;
+    classDef source fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    class ExternalUser,Admin,Developer actor;
+    class Identity,Access,Policy,Secrets security;
+    class Edge,IdentityAPI,OrdersAPI,Worker workload;
+    class Postgres,Cache,Bus,Backup,Telemetry data;
+    class Source,CI,Registry,Desired delivery;
+    class Existing source;

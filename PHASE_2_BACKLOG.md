@@ -25,7 +25,7 @@ données ne peut être exécuté sans examen explicite de son périmètre.
 | Mission | Intitulé | Statut | Dépend de |
 |---|---|---|---|
 | T00 | Initialiser la transformation TO-BE | Terminée | M16 |
-| T01 | Définir SLO, RTO/RPO et modèle de menace | À faire | T00 |
+| T01 | Définir SLO, RTO/RPO et modèle de menace | Terminée | T00 |
 | T02 | Réinventorier les deux projets OpenStack | À faire | T01 |
 | T03 | Approuver l'architecture cible et les ADR | À faire | T02 |
 | T04 | Stabiliser les fondations avant migration | À faire | T03 |
@@ -66,13 +66,26 @@ aucune capacité non inventoriée n'est présentée comme acquise.
 **Objectif :** définir ce que la plateforme doit protéger et rendre disponible
 avant de choisir définitivement les mécanismes.
 
-**Livrables :** parcours métier critiques, propriétaires, SLI/SLO candidats,
-RTO/RPO par service, classification des données, menaces, frontières de
-confiance et critères de succès mesurables.
+**Livrables :**
+
+- `docs/phase-2-to-be/03-service-objectives.md` : parcours critiques,
+  propriétaires, SLI/SLO et budgets d'erreur candidats ;
+- `docs/phase-2-to-be/04-data-classification-and-recovery.md` : classification,
+  RTO/RPO et exigences de restauration ;
+- `docs/phase-2-to-be/05-threat-model.md` : actifs, menaces, frontières et
+  contrôles testables ;
+- `docs/phase-2-to-be/06-t01-requirements-traceability.md` : couverture des 22
+  constats M16 ;
+- `docs/diagrams/to-be-trust-boundaries.mmd` ;
+- `docs/evidence/phase-2/T01-service-objectives-and-threat-model.md`.
 
 **Validation :** chaque exigence est testable et reliée à un risque M16.
 
 **Preuve :** `T01-service-objectives-and-threat-model.md`.
+
+**Conclusion :** 33 exigences testables couvrent les 22 constats. Les valeurs
+SLO/RTO/RPO restent des objectifs internes candidats à faire approuver par les
+propriétaires métier ; aucune conformité runtime n'est revendiquée par T01.
 
 ## T02 — Réinventorier les deux projets OpenStack
 
