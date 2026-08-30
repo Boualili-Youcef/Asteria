@@ -1,0 +1,2 @@
+source_bastion_cidr       = "192.0.2.10/32"
+target_security_group_name = "default"

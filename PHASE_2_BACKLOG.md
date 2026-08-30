@@ -26,7 +26,7 @@ données ne peut être exécuté sans examen explicite de son périmètre.
 |---|---|---|---|
 | T00 | Initialiser la transformation TO-BE | Terminée | M16 |
 | T01 | Définir SLO, RTO/RPO et modèle de menace | Terminée | T00 |
-| T02 | Réinventorier les deux projets OpenStack | À faire | T01 |
+| T02 | Réinventorier les deux projets OpenStack | Terminée | T01 |
 | T03 | Approuver l'architecture cible et les ADR | À faire | T02 |
 | T04 | Stabiliser les fondations avant migration | À faire | T03 |
 | T05 | Construire la landing zone et le chemin blue/green | À faire | T04 |
@@ -101,6 +101,13 @@ de workers, stockage et cible de sauvegarde.
 
 **Preuve :** `T02-dual-project-openstack-inventory.md`, sans identifiants ni
 secrets.
+
+**État actuel :** les deux collectes authentifiées sont analysées. Le projet
+source conserve le lab principal ; le projet secondaire ne peut devenir qu'un
+staging Kubernetes léger. La libération de ses deux VM CKA a été autorisée le
+30 août 2026 ; le contrôle live final confirme 0 instance, 0 vCPU, 0 Mo de RAM
+et 0 port utilisés. Le probe inter-projets est reporté comme critère bloquant à
+la création contrôlée du staging en T05.
 
 ## T03 — Approuver l'architecture cible et les ADR
 
