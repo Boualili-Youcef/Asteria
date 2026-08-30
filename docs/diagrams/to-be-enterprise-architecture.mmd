@@ -1,0 +1,127 @@
+flowchart TB
+    Users[Clients B2B]
+    Devs[Equipes produit]
+    Platform[Equipe Platform]
+    Security[Equipe Securite et Audit]
+
+    subgraph IDENTITY[Plan identite et acces]
+        IdP[IdP OIDC<br/>SSO + MFA]
+        Teleport[Teleport HA<br/>SSH + Kubernetes + DB<br/>certificats courts + audit]
+        BreakGlass[Acces break-glass<br/>hors bande, surveille et teste]
+    end
+
+    subgraph DELIVERY[Plan de livraison]
+        AppGit[Repos applicatifs]
+        SharedCI[Workflow CI reutilisable<br/>tests + scans + SBOM + provenance]
+        Registry[GHCR<br/>images par digest]
+        ConfigGit[Repo GitOps<br/>environnements + digests]
+        Argo[Argo CD<br/>drift + promotion + rollback]
+    end
+
+    subgraph OPENSTACK[Cloud prive OpenStack multi-projets]
+        subgraph SHARED[Projet services partages]
+            OpenBao[OpenBao HA<br/>Raft + audit]
+            ObjectStore[Stockage objet<br/>backups + WAL + observabilite]
+            SharedObs[Retention longue / audit]
+        end
+
+        subgraph STAGING[Projet staging]
+            StageCluster[Cluster Kubernetes staging<br/>validation promotion et restore]
+        end
+
+        subgraph PROD[Projet production multi-domaines de panne]
+            StableEntry[DNS + LB/VIP entreprise]
+
+            subgraph K8S[Cluster Kubernetes cible]
+                ControlPlane[3 control planes<br/>quorum HA]
+                Workers[3+ workers<br/>spread multi-zone]
+                Cilium[Cilium CNI + Hubble<br/>default-deny + visibilite]
+                Gateway[Gateway API + Envoy Gateway<br/>TLS + HTTPRoute]
+                CertManager[cert-manager]
+                ESO[External Secrets]
+                Kyverno[PSA + Kyverno<br/>policy et verification image]
+
+                subgraph APPS[Workloads par equipe]
+                    Identity[identity-api<br/>OIDC + replicas]
+                    Orders[orders-api<br/>migrations + outbox]
+                    Notifications[notifications-worker<br/>idempotence + DLQ]
+                end
+
+                subgraph DATA[Services data]
+                    Postgres[(PostgreSQL HA<br/>TLS + PITR)]
+                    Valkey[(Valkey cache<br/>ACL + TLS)]
+                    Messaging[(Bus durable<br/>streams + DLQ)]
+                end
+
+                subgraph OBS[Observabilite]
+                    OTel[OpenTelemetry Collector]
+                    Prom[Prometheus + Alertmanager<br/>SLO + alertes]
+                    Loki[Loki<br/>logs centralises]
+                    Tempo[Tempo<br/>traces]
+                    Grafana[Grafana OIDC]
+                end
+            end
+        end
+    end
+
+    Users --> IdP
+    Users --> StableEntry --> Gateway
+    Gateway --> Identity
+    Gateway --> Orders
+    IdP --> Identity
+    IdP --> Orders
+
+    Platform --> IdP --> Teleport
+    Security --> IdP
+    Teleport --> ControlPlane
+    Teleport --> Postgres
+    BreakGlass -. secours uniquement .-> ControlPlane
+
+    Devs --> AppGit --> SharedCI --> Registry
+    SharedCI --> ConfigGit --> Argo
+    Argo --> StageCluster
+    Argo --> K8S
+    Registry --> K8S
+
+    Cilium --- ControlPlane
+    Cilium --- Workers
+    CertManager --> Gateway
+    ESO --> OpenBao
+    ESO --> APPS
+    Kyverno -. admission .-> APPS
+
+    Identity --> Postgres
+    Orders --> Postgres
+    Orders --> Valkey
+    Orders --> Messaging
+    Messaging --> Notifications
+    Notifications --> Postgres
+
+    APPS --> OTel
+    DATA --> OTel
+    Gateway --> OTel
+    Cilium --> OTel
+    OTel --> Prom
+    OTel --> Loki
+    OTel --> Tempo
+    Prom --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+
+    Postgres -->|base backups + WAL| ObjectStore
+    K8S -->|snapshots + objets| ObjectStore
+    OpenBao -->|snapshots chiffres| ObjectStore
+    OBS --> SharedObs
+
+    classDef actor fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
+    classDef security fill:#f3e8ff,stroke:#7e22ce,color:#581c87;
+    classDef delivery fill:#fef9c3,stroke:#a16207,color:#713f12;
+    classDef platform fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef data fill:#ffedd5,stroke:#c2410c,color:#7c2d12;
+    classDef obs fill:#cffafe,stroke:#0e7490,color:#164e63;
+    class Users,Devs,Platform,Security actor;
+    class IdP,Teleport,BreakGlass,OpenBao,ESO,Kyverno security;
+    class AppGit,SharedCI,Registry,ConfigGit,Argo delivery;
+    class StableEntry,StageCluster,ControlPlane,Workers,Cilium,Gateway,CertManager,Identity,Orders,Notifications platform;
+    class ObjectStore,Postgres,Valkey,Messaging data;
+    class SharedObs,OTel,Prom,Loki,Tempo,Grafana obs;

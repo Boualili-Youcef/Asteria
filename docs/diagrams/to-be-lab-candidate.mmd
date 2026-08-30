@@ -1,0 +1,86 @@
+flowchart TB
+    Warning[[CANDIDAT T00<br/>roles des projets et sizing a confirmer en T02<br/>aucun apply autorise par ce diagramme]]
+
+    Admin[Administrateur]
+    Dev[Developpeur]
+    User[Utilisateur de test]
+    IdP[OIDC lab<br/>SSO + MFA]
+    GitHub[GitHub Actions + GitOps]
+    GHCR[GHCR<br/>digest + provenance]
+
+    subgraph OPENSTACK[OpenStack prive - deux projets]
+        Provider[Reseau provider partage<br/>capacites revalidees en T02]
+
+        subgraph PROJECT_A[Projet A - AS-IS / source de migration]
+            Existing[Plateforme M16 intacte<br/>5 VM + K3s + PostgreSQL]
+            Bastion[Bastion actuel<br/>break-glass pendant migration]
+        end
+
+        subgraph PROJECT_B[Projet B - cible candidate]
+            Access[Teleport lab<br/>acces identite et audit]
+            Backup[Stockage objet lab<br/>ou service externe verifie]
+
+            subgraph GREEN[Green cluster dimensionne apres T02]
+                CP[Control plane lab<br/>HA non revendiquee]
+                Workers[Workers selon quota<br/>3 domaines seulement si prouves]
+                Cilium[Cilium + Hubble<br/>default-deny]
+                Envoy[Gateway API + Envoy<br/>NodePort prive si aucun LB]
+                Argo[Argo CD]
+                Policy[PSA + Kyverno]
+                Secrets[OpenBao + External Secrets<br/>mode lab explicitement non HA]
+
+                Apps[3 applications modernisees<br/>OIDC + replicas + OTel]
+                PG[(PostgreSQL cible<br/>mode choisi en T03<br/>TLS + backup + restore)]
+                Cache[(Valkey cache isole)]
+                Bus[(Bus durable + DLQ)]
+                Obs[Prometheus + Alertmanager<br/>Grafana + Loki + Tempo]
+            end
+        end
+    end
+
+    Admin --> IdP --> Access
+    Access --> GREEN
+    Admin -. secours .-> Bastion
+    Bastion --> Existing
+
+    Dev --> GitHub --> GHCR
+    GitHub --> Argo
+    GHCR --> Argo --> Apps
+    User --> IdP
+    User -->|TLS prive| Envoy --> Apps
+
+    Cilium --- CP
+    Cilium --- Workers
+    Policy -. admission .-> Apps
+    Secrets --> Apps
+    Apps --> PG
+    Apps --> Cache
+    Apps --> Bus
+    Apps --> Obs
+    Cilium --> Obs
+
+    PG --> Backup
+    Secrets --> Backup
+    Obs --> Backup
+
+    Provider --- Existing
+    Provider -. connectivite a prouver .- GREEN
+    Warning -. gate T02/T03 .-> PROJECT_B
+
+    Rollback[[Rollback<br/>le projet A reste disponible<br/>jusqu aux tests T17]]
+    Existing -. retour arriere .-> Rollback
+    GREEN -. bascule progressive .-> Rollback
+
+    Limits[[Limites honnetes du lab<br/>pas de HA de zone ni DR physique revendiques<br/>sans domaines de panne independants]]
+    GREEN -.-> Limits
+
+    classDef source fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef target fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef security fill:#f3e8ff,stroke:#7e22ce,color:#581c87;
+    classDef external fill:#fef3c7,stroke:#b45309,color:#78350f;
+    classDef note fill:#f3f4f6,stroke:#4b5563,color:#111827;
+    class Existing,Bastion source;
+    class CP,Workers,Cilium,Envoy,Argo,Policy,Apps,PG,Cache,Bus,Obs target;
+    class IdP,Access,Secrets security;
+    class GitHub,GHCR,Backup external;
+    class Warning,Rollback,Limits note;

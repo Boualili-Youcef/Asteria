@@ -32,18 +32,22 @@ observabilité et son processus de livraison sont incomplets.
 
 ## 3. Rôle joué dans le projet
 
-Pendant la phase 1, le rôle consiste à reconstituer fidèlement l'état AS-IS,
-comme une équipe chargée de reconstruire et documenter l'existant.
+La phase 1 est terminée : le rôle consistait à reconstituer fidèlement l'état
+AS-IS, comme une équipe chargée de reconstruire et documenter l'existant.
 
-À partir de la phase 2, le rôle évoluera vers celui d'un Platform Engineer
-arrivant dans l'organisation pour :
+Depuis l'approbation du **30 août 2026**, la phase courante est la phase 2. Le
+rôle est celui d'un Platform Engineer arrivant dans l'organisation pour :
 
 1. auditer l'existant à partir de preuves ;
 2. identifier les risques et les points de friction ;
 3. définir une architecture cible ;
-4. moderniser progressivement la plateforme selon les standards retenus.
+4. moderniser progressivement la plateforme selon les standards retenus ;
+5. mesurer les résultats, tester les retours arrière et rendre visibles les
+   risques résiduels.
 
-La phase 2 ne doit pas être anticipée pendant la construction de la phase 1.
+Le point de départ AS-IS reste figé dans ses documents et preuves. Les
+améliorations appartiennent à `docs/phase-2-to-be/` et ne doivent pas réécrire
+l'historique pour le rendre artificiellement meilleur.
 
 ## 4. Architecture AS-IS validée
 
@@ -131,9 +135,9 @@ Principes obligatoires :
 - ne jamais stocker de secret OpenStack, clé privée ou mot de passe dans Git ;
 - documenter toute adaptation imposée par les quotas ou services disponibles.
 
-## 6. Périmètre de la phase 1
+## 6. Périmètre livré en phase 1
 
-La phase 1 doit construire et documenter :
+La phase 1 a construit et documenté :
 
 - le dépôt, ses règles de travail et son système de preuves ;
 - le contexte métier et le diagramme AS-IS figé ;
@@ -167,7 +171,24 @@ Les éléments suivants ne sont pas des oublis de la phase 1 :
 Ces dettes doivent être visibles, documentées et démontrables afin d'alimenter
 l'audit et la transformation de la phase 2.
 
-## 8. Hors périmètre pendant la phase 1
+## 8. Périmètre de la phase 2
+
+La phase 2 est pilotée par `PHASE_2_BACKLOG.md`. Elle doit :
+
+- définir SLO, RTO/RPO, modèle de menace et critères mesurables ;
+- réinventorier les deux projets OpenStack avant de distribuer leurs rôles ;
+- approuver les décisions importantes par ADR ;
+- sécuriser les fondations et conserver un rollback avant chaque migration ;
+- construire accès Zero Trust, Kubernetes sécurisé, Gateway API, secrets,
+  données fiables, golden path CI, GitOps et observabilité ;
+- tester les restaurations, pannes, accès refusés et politiques ;
+- comparer factuellement les 22 constats AS-IS à l'état final TO-BE.
+
+L'architecture entreprise et l'implémentation lab sont toujours distinguées.
+Une capacité HA ou DR n'est jamais revendiquée si le lab ne possède pas les
+domaines de panne nécessaires.
+
+## 9. Hors périmètre historique de la phase 1
 
 Sauf instruction explicite modifiant la phase, ne pas introduire :
 
@@ -184,26 +205,27 @@ Les bonnes pratiques indispensables à la sécurité du lab restent obligatoires
 Conserver une dette réaliste ne signifie jamais publier des secrets ou prendre
 un risque inutile sur l'environnement réel.
 
-## 9. Méthode de travail et preuves
+## 10. Méthode de travail et preuves
 
-Le projet avance mission par mission selon `PHASE_1_BACKLOG.md`. Une mission
+Le projet avance mission par mission selon `PHASE_2_BACKLOG.md`. Une mission
 n'est terminée que lorsque :
 
 1. ses livrables existent ;
 2. les validations prévues réussissent ou leurs écarts sont expliqués ;
-3. une preuve est enregistrée sous `docs/evidence/phase-1/` ;
+3. une preuve est enregistrée sous `docs/evidence/phase-2/` ;
 4. les décisions et hypothèses sont traçables ;
 5. la prochaine mission peut commencer sans dépendance cachée.
 
-## 10. Sources de vérité
+## 11. Sources de vérité
 
 En cas de contradiction, appliquer cet ordre :
 
 1. inventaires et validations techniques capturés pendant les missions ;
-2. décisions explicitement approuvées dans ce fichier ;
-3. `archi.md`, architecture AS-IS validée ;
-4. `PHASE_1_BACKLOG.md`, ordre et critères des missions ;
-5. `contexte.md`, matériau de cadrage initial non normatif.
+2. ADR approuvées et exigences de phase 2 ;
+3. décisions explicitement approuvées dans ce fichier ;
+4. `PHASE_2_BACKLOG.md`, ordre et critères de transformation ;
+5. `archi.md` et les preuves M00-M16 pour le point de départ AS-IS ;
+6. `contexte.md`, matériau de cadrage initial non normatif.
 
 Toute contradiction doit être signalée et résolue dans la documentation avant
 qu'elle n'affecte une ressource réelle.
