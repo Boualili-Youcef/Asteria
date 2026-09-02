@@ -1,0 +1,214 @@
+---
+- name: Préparer le répertoire privé de réception T04
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    t04_local_backup_root: "{{ lookup('env', 'ASTERIA_T04_BACKUP_ROOT') }}"
+    t04_repo_root: "{{ lookup('pipe', 'git rev-parse --show-toplevel') }}"
+
+  tasks:
+    - name: Exiger une destination absolue hors du dépôt
+      ansible.builtin.assert:
+        that:
+          - t04_local_backup_root | length > 1
+          - t04_local_backup_root is match('^/')
+          - not t04_local_backup_root.startswith(t04_repo_root + '/')
+        fail_msg: >-
+          Définir ASTERIA_T04_BACKUP_ROOT vers un répertoire absolu privé hors
+          du dépôt, par exemple /tmp/asteria-t04-YYYYMMDDTHHMMSSZ.
+
+    - name: Créer la destination privée
+      ansible.builtin.file:
+        path: "{{ t04_local_backup_root }}"
+        state: directory
+        mode: "0700"
+
+- name: Produire et rapatrier un dump PostgreSQL de sécurité
+  hosts: postgres
+  become: true
+  gather_facts: false
+  vars:
+    t04_local_backup_root: "{{ lookup('env', 'ASTERIA_T04_BACKUP_ROOT') }}"
+
+  tasks:
+    - name: Exécuter le backup PostgreSQL M08 sans interruption
+      ansible.builtin.command:
+        argv:
+          - runuser
+          - --user
+          - postgres
+          - --
+          - /usr/local/sbin/asteria-postgres-backup
+      register: t04_postgres_backup
+      changed_when: true
+
+    - name: Vérifier les checksums du backup PostgreSQL distant
+      ansible.builtin.command:
+        argv:
+          - runuser
+          - --user
+          - postgres
+          - --
+          - sha256sum
+          - --check
+          - SHA256SUMS
+      args:
+        chdir: "{{ t04_postgres_backup.stdout | trim }}"
+      changed_when: false
+
+    - name: Archiver le backup PostgreSQL pour transfert
+      ansible.builtin.command:
+        argv:
+          - runuser
+          - --user
+          - postgres
+          - --
+          - tar
+          - --create
+          - --gzip
+          - >-
+            --file=/var/backups/asteria-postgresql/t04-postgresql-{{
+            t04_postgres_backup.stdout | trim | basename }}.tar.gz
+          - --directory={{ t04_postgres_backup.stdout | trim | dirname }}
+          - "{{ t04_postgres_backup.stdout | trim | basename }}"
+      changed_when: true
+
+    - name: Rapatrier l'archive PostgreSQL
+      ansible.builtin.fetch:
+        src: >-
+          /var/backups/asteria-postgresql/t04-postgresql-{{
+          t04_postgres_backup.stdout | trim | basename }}.tar.gz
+        dest: "{{ t04_local_backup_root }}/postgresql.tar.gz"
+        flat: true
+        validate_checksum: true
+
+- name: Produire et rapatrier un backup K3s SQLite cohérent
+  hosts: control_plane
+  become: true
+  gather_facts: false
+  vars:
+    t04_local_backup_root: "{{ lookup('env', 'ASTERIA_T04_BACKUP_ROOT') }}"
+
+  tasks:
+    - name: Créer un identifiant UTC pour le backup K3s
+      ansible.builtin.command:
+        argv:
+          - date
+          - -u
+          - +%Y%m%dT%H%M%SZ
+      register: t04_k3s_run_id
+      changed_when: false
+
+    - name: Définir les chemins uniques du backup K3s
+      ansible.builtin.set_fact:
+        t04_k3s_backup_dir: >-
+          /var/backups/asteria-k3s/{{ t04_k3s_run_id.stdout | trim }}
+        t04_k3s_archive: >-
+          {{ '/var/backups/asteria-k3s/t04-k3s-'
+          ~ (t04_k3s_run_id.stdout | trim)
+          ~ '.tar.gz' }}
+
+    - name: Installer le client SQLite requis pour le backup en ligne
+      ansible.builtin.apt:
+        name: sqlite3
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Recréer le répertoire transitoire privé
+      ansible.builtin.file:
+        path: "{{ t04_k3s_backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Produire une copie SQLite cohérente en ligne
+      ansible.builtin.command:
+        argv:
+          - sqlite3
+          - /var/lib/rancher/k3s/server/db/state.db
+          - ".backup '{{ t04_k3s_backup_dir }}/state.db'"
+      changed_when: true
+
+    - name: Copier le token serveur requis à la restauration
+      ansible.builtin.copy:
+        src: /var/lib/rancher/k3s/server/token
+        dest: "{{ t04_k3s_backup_dir }}/server-token"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+      no_log: true
+
+    - name: Copier la configuration K3s
+      ansible.builtin.copy:
+        src: /etc/rancher/k3s/config.yaml
+        dest: "{{ t04_k3s_backup_dir }}/config.yaml"
+        remote_src: true
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Exporter l'inventaire Kubernetes sans contenu des Secrets
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        /usr/local/bin/k3s kubectl get
+        namespaces,nodes,storageclasses,persistentvolumes,persistentvolumeclaims
+        --all-namespaces -o yaml
+        > {{ t04_k3s_backup_dir }}/kubernetes-inventory.yaml
+      args:
+        executable: /bin/bash
+      changed_when: true
+
+    - name: Écrire et vérifier les checksums K3s
+      ansible.builtin.shell: >-
+        set -o pipefail && chmod 0600 state.db server-token config.yaml
+        kubernetes-inventory.yaml &&
+        sha256sum state.db server-token config.yaml kubernetes-inventory.yaml
+        > SHA256SUMS && chmod 0600 SHA256SUMS &&
+        sha256sum --check SHA256SUMS
+      args:
+        executable: /bin/bash
+        chdir: "{{ t04_k3s_backup_dir }}"
+      changed_when: true
+      no_log: true
+
+    - name: Archiver le backup K3s pour transfert
+      ansible.builtin.command:
+        argv:
+          - tar
+          - --create
+          - --gzip
+          - "--file={{ t04_k3s_archive }}"
+          - --directory={{ t04_k3s_backup_dir }}
+          - .
+      changed_when: true
+
+    - name: Rapatrier l'archive K3s restreinte
+      ansible.builtin.fetch:
+        src: "{{ t04_k3s_archive }}"
+        dest: "{{ t04_local_backup_root }}/k3s.tar.gz"
+        flat: true
+        validate_checksum: true
+      no_log: true
+
+- name: Vérifier les archives rapatriées
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    t04_local_backup_root: "{{ lookup('env', 'ASTERIA_T04_BACKUP_ROOT') }}"
+
+  tasks:
+    - name: Protéger les archives et produire leur catalogue
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        sha256sum postgresql.tar.gz k3s.tar.gz > SHA256SUMS &&
+        chmod 0600 postgresql.tar.gz k3s.tar.gz SHA256SUMS &&
+        sha256sum --check SHA256SUMS
+      args:
+        executable: /bin/bash
+        chdir: "{{ t04_local_backup_root }}"
+      changed_when: true

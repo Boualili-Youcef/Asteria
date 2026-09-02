@@ -48,3 +48,14 @@ node_exporter_image: quay.io/prometheus/node-exporter:v1.11.1
 grafana_version: "13.1.0"
 grafana_image: grafana/grafana:13.1.0
 m12_grafana_host: grafana.asteria.local
+
+# T04 utilise le service natif Ubuntu systemd-timesyncd. La référence
+# entreprise exige des serveurs NTP internes redondants et authentifiés. Le lab
+# utilise la source institutionnelle joignable depuis le réseau provider et
+# vérifie le résultat avant de poursuivre.
+asteria_ntp_servers:
+  - ntp.univ-lille.fr
+asteria_ntp_fallback_servers:
+  - ntp.ubuntu.com
+  - 0.ubuntu.pool.ntp.org
+  - 1.ubuntu.pool.ntp.org

@@ -1,0 +1,110 @@
+---
+- name: Stabiliser et vérifier la synchronisation NTP T04
+  hosts: all
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: Vérifier la plateforme et les sources NTP explicites
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_major_version == "24"
+          - asteria_ntp_servers | length > 0
+        fail_msg: >-
+          T04 requiert Ubuntu 24.04 et au moins une source NTP explicite.
+
+    - name: Inventorier les services de temps avant changement
+      ansible.builtin.service_facts:
+
+    - name: Refuser un autre démon NTP actif
+      ansible.builtin.assert:
+        that:
+          - >-
+            ansible_facts.services.get(
+            'chrony.service', {}).get('state', 'stopped')
+            != 'running'
+          - >-
+            ansible_facts.services.get(
+            'ntp.service', {}).get('state', 'stopped')
+            != 'running'
+        fail_msg: >-
+          chrony ou ntpd est déjà actif. Choisir explicitement un seul démon
+          avant de relancer T04.
+
+  tasks:
+    - name: Installer systemd-timesyncd
+      ansible.builtin.apt:
+        name: systemd-timesyncd
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Créer le répertoire de configuration timesyncd
+      ansible.builtin.file:
+        path: /etc/systemd/timesyncd.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Déclarer les sources NTP du lab
+      ansible.builtin.copy:
+        dest: /etc/systemd/timesyncd.conf.d/50-asteria.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Géré par Ansible - T04 Asteria
+          [Time]
+          NTP={{ asteria_ntp_servers | join(' ') }}
+          FallbackNTP={{ asteria_ntp_fallback_servers | join(' ') }}
+      notify: Redémarrer systemd-timesyncd
+
+    - name: Activer systemd-timesyncd
+      ansible.builtin.service:
+        name: systemd-timesyncd
+        state: started
+        enabled: true
+
+    - name: Appliquer la configuration avant validation
+      ansible.builtin.meta: flush_handlers
+
+    - name: Attendre la synchronisation NTP
+      ansible.builtin.command:
+        argv:
+          - timedatectl
+          - show
+          - --property=NTPSynchronized
+          - --value
+      register: t04_ntp_synchronized
+      changed_when: false
+      retries: 24
+      delay: 5
+      until: t04_ntp_synchronized.stdout | trim == "yes"
+      when: not ansible_check_mode
+
+    - name: Capturer le statut de synchronisation
+      ansible.builtin.command:
+        argv:
+          - timedatectl
+          - timesync-status
+          - --no-pager
+      register: t04_timesync_status
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirmer le résultat NTP
+      ansible.builtin.assert:
+        that:
+          - t04_ntp_synchronized.stdout | trim == "yes"
+        success_msg: "NTP synchronisé sur {{ inventory_hostname }}"
+      when: not ansible_check_mode
+
+  handlers:
+    - name: Redémarrer systemd-timesyncd
+      ansible.builtin.service:
+        name: systemd-timesyncd
+        state: restarted
