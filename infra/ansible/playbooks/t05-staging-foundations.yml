@@ -1,0 +1,278 @@
+---
+- name: Stabiliser les deux VM du staging T05
+  hosts: staging
+  serial: 1
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: Vérifier la plateforme et la source d'administration
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_major_version == "24"
+          - asteria_source_bastion_ip is defined
+          - asteria_source_bastion_ip | length > 0
+          - asteria_ntp_servers | length > 0
+        fail_msg: >-
+          T05 requiert Ubuntu 24.04, le bastion source et une source NTP
+          explicite avant toute configuration.
+
+  tasks:
+    - name: Installer les paquets de fondation
+      ansible.builtin.apt:
+        name:
+          - systemd-timesyncd
+          - ufw
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Créer le répertoire de configuration timesyncd
+      ansible.builtin.file:
+        path: /etc/systemd/timesyncd.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Déclarer la source NTP du staging
+      ansible.builtin.copy:
+        dest: /etc/systemd/timesyncd.conf.d/50-asteria.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Géré par Ansible - T05 Asteria
+          [Time]
+          NTP={{ asteria_ntp_servers | join(' ') }}
+          FallbackNTP={{ asteria_ntp_fallback_servers | join(' ') }}
+      notify: Redémarrer systemd-timesyncd
+
+    - name: Activer systemd-timesyncd
+      ansible.builtin.systemd_service:
+        name: systemd-timesyncd
+        state: started
+        enabled: true
+
+    - name: Restreindre SSH à la source du bastion
+      ansible.builtin.copy:
+        dest: /etc/ssh/sshd_config.d/60-asteria-staging.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          # Géré par Ansible - T05 Asteria
+          PermitRootLogin no
+          PasswordAuthentication no
+          KbdInteractiveAuthentication no
+          PubkeyAuthentication yes
+          AllowUsers {{ ansible_user }}@{{ asteria_source_bastion_ip }}
+      notify: Recharger SSH
+
+    - name: Valider la configuration SSH avant rechargement
+      ansible.builtin.command:
+        argv:
+          - sshd
+          - -t
+      changed_when: false
+
+    - name: Appliquer les handlers avant les contrôles
+      ansible.builtin.meta: flush_handlers
+
+    - name: Lire l'état initial du pare-feu hôte
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - status
+          - verbose
+      register: t05_ufw_initial_status
+      changed_when: false
+      check_mode: false
+
+    - name: Fermer les connexions entrantes par défaut
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - default
+          - deny
+          - incoming
+      register: t05_ufw_default_incoming
+      when: "'Default: deny (incoming)' not in t05_ufw_initial_status.stdout"
+      changed_when: true
+
+    - name: Autoriser les connexions sortantes par défaut
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - default
+          - allow
+          - outgoing
+      register: t05_ufw_default_outgoing
+      when: "'allow (outgoing)' not in t05_ufw_initial_status.stdout"
+      changed_when: true
+
+    - name: Autoriser SSH uniquement depuis le bastion
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ asteria_source_bastion_ip }}"
+          - to
+          - any
+          - port
+          - "22"
+          - proto
+          - tcp
+          - comment
+          - Asteria T05 bastion SSH
+      register: t05_ufw_ssh
+      changed_when: "'Skipping adding existing rule' not in t05_ufw_ssh.stdout"
+
+    - name: Autoriser l'API Kubernetes du control-plane depuis ses clients prévus
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ item }}"
+          - to
+          - any
+          - port
+          - "6443"
+          - proto
+          - tcp
+          - comment
+          - Asteria T05 Kubernetes API
+      loop:
+        - "{{ asteria_source_bastion_ip }}"
+        - "{{ asteria_staging_worker_ip }}"
+      register: t05_ufw_control_plane_api
+      changed_when: "'Skipping adding existing rule' not in t05_ufw_control_plane_api.stdout"
+      when: inventory_hostname in groups['staging_control_plane']
+
+    - name: Autoriser le kubelet du worker depuis le control-plane
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ asteria_staging_control_plane_ip }}"
+          - to
+          - any
+          - port
+          - "10250"
+          - proto
+          - tcp
+          - comment
+          - Asteria T05 kubelet
+      register: t05_ufw_worker_kubelet
+      changed_when: "'Skipping adding existing rule' not in t05_ufw_worker_kubelet.stdout"
+      when: inventory_hostname in groups['staging_workers']
+
+    - name: Planifier un rollback automatique du pare-feu
+      ansible.builtin.command:
+        argv:
+          - systemd-run
+          - --unit=asteria-t05-ufw-rollback
+          - --on-active=2m
+          - --collect
+          - --
+          - /usr/sbin/ufw
+          - --force
+          - disable
+      when: "'Status: inactive' in t05_ufw_initial_status.stdout"
+      changed_when: true
+
+    - name: Activer le pare-feu hôte après ajout des règles SSH
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - --force
+          - enable
+      when: "'Status: inactive' in t05_ufw_initial_status.stdout"
+      changed_when: true
+
+    - name: Réinitialiser la connexion après activation du pare-feu
+      ansible.builtin.meta: reset_connection
+
+    - name: Confirmer le retour SSH avant d'annuler le rollback automatique
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 8
+        sleep: 2
+        timeout: 45
+
+    - name: Annuler le rollback automatique après retour SSH
+      ansible.builtin.shell: |
+        systemctl stop asteria-t05-ufw-rollback.timer
+        systemctl reset-failed asteria-t05-ufw-rollback.service 2>/dev/null || true
+      args:
+        executable: /bin/bash
+      when: "'Status: inactive' in t05_ufw_initial_status.stdout"
+      changed_when: true
+
+    - name: Vérifier le pare-feu hôte actif
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - status
+          - verbose
+      register: t05_ufw_final_status
+      changed_when: false
+      check_mode: false
+
+    - name: Confirmer la politique entrante du staging
+      ansible.builtin.assert:
+        that:
+          - "'Status: active' in t05_ufw_final_status.stdout"
+          - "'Default: deny (incoming)' in t05_ufw_final_status.stdout"
+          - "asteria_source_bastion_ip in t05_ufw_final_status.stdout"
+        success_msg: "Pare-feu hôte T05 actif sur {{ inventory_hostname }}"
+      when: not ansible_check_mode
+
+    - name: Attendre la synchronisation NTP
+      ansible.builtin.command:
+        argv:
+          - timedatectl
+          - show
+          - --property=NTPSynchronized
+          - --value
+      register: t05_ntp_synchronized
+      changed_when: false
+      retries: 24
+      delay: 5
+      until: t05_ntp_synchronized.stdout | trim == "yes"
+      when: not ansible_check_mode
+
+    - name: Vérifier la présence du config-drive
+      ansible.builtin.command:
+        argv:
+          - lsblk
+          - --noheadings
+          - --output
+          - LABEL
+      register: t05_block_labels
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Confirmer les fondations du staging
+      ansible.builtin.assert:
+        that:
+          - t05_ntp_synchronized.stdout | trim == "yes"
+          - "'config-2' in t05_block_labels.stdout"
+        success_msg: "Fondations T05 valides sur {{ inventory_hostname }}"
+      when: not ansible_check_mode
+
+  handlers:
+    - name: Redémarrer systemd-timesyncd
+      ansible.builtin.systemd_service:
+        name: systemd-timesyncd
+        state: restarted
+
+    - name: Recharger SSH
+      ansible.builtin.systemd_service:
+        name: ssh
+        state: reloaded

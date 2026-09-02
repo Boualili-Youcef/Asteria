@@ -1,0 +1,4 @@
+expected_project_id       = "00000000000000000000000000000000"
+source_bastion_cidr       = "192.0.2.10/32"
+ssh_public_key_path       = "~/.ssh/tp_cloud.pub"
+enable_connectivity_probe = false
