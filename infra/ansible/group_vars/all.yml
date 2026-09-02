@@ -69,3 +69,10 @@ teleport_proxy_port: 3080
 teleport_min_available_memory_mb: 256
 teleport_control_memory_max_mb: 512
 teleport_agent_memory_max_mb: 256
+
+# T07 reconstruit uniquement le staging avec la version K3s deja qualifiee et
+# Cilium stable compatible Kubernetes 1.36. Hubble UI reste desactivee pour
+# respecter CAP-05 ; le relay et l'export de flux suffisent a la preuve.
+cilium_version: "1.20.1"
+t07_validation_namespace: t07-validation
+t07_validation_image: busybox:1.37.0

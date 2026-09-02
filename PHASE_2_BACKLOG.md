@@ -31,7 +31,7 @@ données ne peut être exécuté sans examen explicite de son périmètre.
 | T04 | Stabiliser les fondations avant migration | Terminée | T03 |
 | T05 | Construire la landing zone et le staging séparé | Terminée | T04 |
 | T06 | Mettre en place l'accès d'administration Zero Trust | Terminée | T05 |
-| T07 | Construire la fondation Kubernetes cible | À faire | T05 |
+| T07 | Construire la fondation Kubernetes cible | Terminée | T05 |
 | T08 | Migrer l'entrée vers Gateway API et TLS | À faire | T07 |
 | T09 | Industrialiser identités, secrets et politiques | À faire | T07 |
 | T10 | Fiabiliser PostgreSQL, cache et messagerie | À faire | T07, T09 |
@@ -211,6 +211,14 @@ que si T02 démontre réellement ces domaines.
 **Traite :** `ASIS-001`, `ASIS-003`, `ASIS-004`, `ASIS-020`.
 
 **Preuve :** `T07-target-kubernetes-foundation.md`.
+
+**Conclusion :** le staging exécute K3s `v1.36.2+k3s1` avec Cilium `1.20.1`
+et Hubble. DNS/VXLAN inter-nœuds, default-deny, refus observable, RBAC minimal,
+PSA restricted, quotas et stockage synthétique sont validés. Le second passage
+Ansible retourne `changed=0` sur les deux nœuds ; le source reste 3/3 `Ready`
+avec Flannel. Le lab demeure non-HA, sans stockage durable ni marge de quota ;
+la reconstruction/restauration dans le RTO reste à prouver en T15/T17. T08 est
+désormais autorisée.
 
 ## T08 — Migrer l'entrée vers Gateway API et TLS
 

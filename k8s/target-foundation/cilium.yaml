@@ -1,0 +1,76 @@
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: cilium
+  namespace: kube-system
+spec:
+  bootstrap: true
+  chart: cilium
+  repo: https://helm.cilium.io/
+  targetNamespace: kube-system
+  version: 1.20.1
+  timeout: 10m
+  failurePolicy: abort
+  valuesContent: |-
+    cluster:
+      name: asteria-staging
+      id: 7
+    routingMode: tunnel
+    tunnelProtocol: vxlan
+    kubeProxyReplacement: false
+    envoy:
+      enabled: false
+    ipam:
+      mode: cluster-pool
+      operator:
+        clusterPoolIPv4PodCIDRList:
+          - 10.42.0.0/16
+        clusterPoolIPv4MaskSize: 24
+    resources:
+      requests:
+        cpu: 100m
+        memory: 128Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+    operator:
+      replicas: 1
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 250m
+          memory: 256Mi
+      prometheus:
+        enabled: true
+    prometheus:
+      enabled: true
+    hubble:
+      enabled: true
+      export:
+        static:
+          enabled: true
+          filePath: /var/run/cilium/hubble/events.log
+          fileMaxSizeMb: 5
+          fileMaxBackups: 2
+      metrics:
+        enabled:
+          - dns
+          - drop
+          - tcp
+          - flow
+      relay:
+        enabled: true
+        replicas: 1
+        resources:
+          requests:
+            cpu: 25m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 256Mi
+        prometheus:
+          enabled: true
+      ui:
+        enabled: false

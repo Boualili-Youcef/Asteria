@@ -1,0 +1,670 @@
+---
+- name: Préparer sans ambiguïté les deux nœuds Kubernetes du staging T07
+  hosts: staging
+  serial: 1
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  pre_tasks:
+    - name: Refuser toute cible hors du staging CAP-05
+      ansible.builtin.assert:
+        that:
+          - inventory_hostname is match('^staging-k8s-')
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.distribution_major_version == "24"
+          - ansible_facts.architecture == "x86_64"
+          - groups['staging_control_plane'] | length == 1
+          - groups['staging_workers'] | length == 1
+          - ansible_facts.kernel is version('5.10', '>=')
+        fail_msg: >-
+          T07 cible exclusivement les deux VM Ubuntu 24.04 amd64 du staging.
+
+    - name: Détecter une installation K3s serveur antérieure
+      ansible.builtin.stat:
+        path: /var/lib/rancher/k3s/server/db/state.db
+      register: t07_existing_server_state
+
+    - name: Détecter une installation K3s agent antérieure
+      ansible.builtin.stat:
+        path: /var/lib/rancher/k3s/agent/client-kubelet.crt
+      register: t07_existing_agent_state
+
+    - name: Lire le marqueur de propriété T07
+      ansible.builtin.stat:
+        path: /etc/asteria/t07-staging-managed
+      register: t07_managed_marker
+
+    - name: Détecter une configuration K3s T07 interrompue
+      ansible.builtin.stat:
+        path: /etc/rancher/k3s/config.yaml
+      register: t07_existing_config
+
+    - name: Lire la signature d'une configuration K3s existante
+      ansible.builtin.slurp:
+        src: /etc/rancher/k3s/config.yaml
+      when: t07_existing_config.stat.exists
+      register: t07_existing_config_content
+      no_log: true
+
+    - name: Refuser d'écraser un cluster non géré par T07
+      ansible.builtin.assert:
+        that:
+          - >-
+            not t07_existing_server_state.stat.exists or
+            t07_managed_marker.stat.exists or
+            'Géré par Ansible - T07 Asteria staging uniquement' in
+            (t07_existing_config_content.content | default('') | b64decode)
+          - >-
+            not t07_existing_agent_state.stat.exists or
+            t07_managed_marker.stat.exists or
+            'Géré par Ansible - T07 Asteria staging uniquement' in
+            (t07_existing_config_content.content | default('') | b64decode)
+        fail_msg: >-
+          Un état K3s antérieur non marqué T07 existe. Arrêt sans modification.
+
+    - name: Créer le répertoire du marqueur T07
+      ansible.builtin.file:
+        path: /etc/asteria
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Marquer une exécution T07 en cours de provisioning
+      ansible.builtin.copy:
+        dest: /etc/asteria/t07-staging-managed
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          mission=T07
+          scope=staging-only
+          source-cluster=untouched
+          state=provisioning
+      when: not t07_managed_marker.stat.exists
+
+    - name: Vérifier l'absence de swap actif
+      ansible.builtin.command:
+        argv:
+          - swapon
+          - --noheadings
+      register: t07_active_swap
+      changed_when: false
+
+    - name: Refuser un nœud avec swap actif
+      ansible.builtin.assert:
+        that:
+          - t07_active_swap.stdout | trim == ""
+
+    - name: Vérifier les options noyau eBPF requises
+      ansible.builtin.shell: >-
+        set -o pipefail &&
+        grep -E '^CONFIG_(BPF|BPF_SYSCALL|BPF_JIT|NET_CLS_BPF|NET_CLS_ACT|NET_SCH_INGRESS|DEBUG_INFO_BTF)=(y|m)$'
+        /boot/config-$(uname -r)
+      args:
+        executable: /bin/bash
+      register: t07_bpf_kernel_options
+      changed_when: false
+
+    - name: Confirmer les sept options noyau eBPF
+      ansible.builtin.assert:
+        that:
+          - t07_bpf_kernel_options.stdout_lines | length == 7
+
+  tasks:
+    - name: Installer les prérequis système K3s et Cilium
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - conntrack
+          - curl
+          - iptables
+          - socat
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Charger les modules réseau au démarrage
+      ansible.builtin.copy:
+        dest: /etc/modules-load.d/99-asteria-k3s.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          overlay
+          br_netfilter
+
+    - name: Charger les modules réseau maintenant
+      ansible.builtin.command:
+        argv:
+          - modprobe
+          - "{{ item }}"
+      loop:
+        - overlay
+        - br_netfilter
+      changed_when: false
+
+    - name: Configurer les paramètres réseau Kubernetes
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-asteria-k3s.conf
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.bridge.bridge-nf-call-ip6tables = 1
+          net.ipv4.ip_forward = 1
+      notify: Recharger les paramètres sysctl
+
+    - name: Déterminer le pair Cilium autorisé
+      ansible.builtin.set_fact:
+        t07_cilium_peer_ip: >-
+          {{ asteria_staging_worker_ip
+             if inventory_hostname in groups['staging_control_plane']
+             else asteria_staging_control_plane_ip }}
+
+    - name: Autoriser les flux Cilium inter-nœuds dans UFW
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ t07_cilium_peer_ip }}"
+          - to
+          - any
+          - port
+          - "{{ item.port }}"
+          - proto
+          - "{{ item.protocol }}"
+          - comment
+          - "{{ item.comment }}"
+      loop:
+        - port: "8472"
+          protocol: udp
+          comment: Asteria T07 Cilium VXLAN
+        - port: "4240"
+          protocol: tcp
+          comment: Asteria T07 Cilium health
+        - port: "4244"
+          protocol: tcp
+          comment: Asteria T07 Hubble peer
+      register: t07_ufw_cilium
+      changed_when: >-
+        'Skipping adding existing rule' not in t07_ufw_cilium.stdout
+
+    - name: Autoriser les Pods à joindre l'API Kubernetes dans UFW
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ k3s_cluster_cidr }}"
+          - to
+          - "{{ ansible_host }}"
+          - port
+          - "6443"
+          - proto
+          - tcp
+          - comment
+          - Asteria T07 Pods vers API
+      when: inventory_hostname in groups['staging_control_plane']
+      register: t07_ufw_pods_api
+      changed_when: >-
+        'Skipping adding existing rule' not in t07_ufw_pods_api.stdout
+
+    - name: Autoriser les Pods à joindre les services hôte requis
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ k3s_cluster_cidr }}"
+          - to
+          - "{{ ansible_host }}"
+          - port
+          - "{{ item.port }}"
+          - proto
+          - tcp
+          - comment
+          - "{{ item.comment }}"
+      loop:
+        - port: "10250"
+          comment: Asteria T07 Pods vers kubelet
+        - port: "4244"
+          comment: Asteria T07 Hubble relay vers agents
+      register: t07_ufw_pods_host_services
+      changed_when: >-
+        'Skipping adding existing rule' not in
+        t07_ufw_pods_host_services.stdout
+
+    - name: Créer le répertoire des sources d'installation
+      ansible.builtin.file:
+        path: /usr/local/src
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Télécharger le script K3s versionné et contrôlé
+      ansible.builtin.get_url:
+        url: >-
+          https://raw.githubusercontent.com/k3s-io/k3s/{{ k3s_version | replace('+', '%2B') }}/install.sh
+        dest: "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+        checksum: "sha256:{{ k3s_install_script_sha256 }}"
+        owner: root
+        group: root
+        mode: "0755"
+
+  handlers:
+    - name: Recharger les paramètres sysctl
+      ansible.builtin.command:
+        argv:
+          - sysctl
+          - --system
+
+- name: Installer le serveur K3s et amorcer Cilium
+  hosts: staging_control_plane
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Créer les répertoires privés et déclaratifs T07
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - path: /etc/asteria
+          mode: "0755"
+        - path: /etc/rancher/k3s
+          mode: "0700"
+        - path: /var/lib/rancher/k3s/server/manifests
+          mode: "0700"
+
+    - name: Installer la configuration cluster-wide Pod Security Admission
+      ansible.builtin.copy:
+        src: ../../../k8s/target-foundation/pod-security-admission.yaml
+        dest: /etc/rancher/k3s/pod-security-admission.yaml
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Redémarrer K3s server
+
+    - name: Installer le chart Cilium bootstrap épinglé
+      ansible.builtin.copy:
+        src: ../../../k8s/target-foundation/cilium.yaml
+        dest: /var/lib/rancher/k3s/server/manifests/cilium.yaml
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Configurer le serveur K3s staging sans Flannel
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          # Géré par Ansible - T07 Asteria staging uniquement
+          write-kubeconfig-mode: "0600"
+          node-ip: "{{ ansible_host }}"
+          advertise-address: "{{ ansible_host }}"
+          tls-san:
+            - "{{ ansible_host }}"
+          flannel-backend: none
+          disable-network-policy: true
+          cluster-cidr: "{{ k3s_cluster_cidr }}"
+          service-cidr: "{{ k3s_service_cidr }}"
+          secrets-encryption: true
+          kube-apiserver-arg:
+            - "admission-control-config-file=/etc/rancher/k3s/pod-security-admission.yaml"
+          disable:
+            - traefik
+            - servicelb
+          node-taint:
+            - "node-role.kubernetes.io/control-plane=true:NoSchedule"
+      notify: Redémarrer K3s server
+
+    - name: Lire la version K3s éventuellement présente
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - --version
+      register: t07_k3s_server_version
+      changed_when: false
+      failed_when: false
+
+    - name: Vérifier la présence du service serveur
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - cat
+          - k3s.service
+      register: t07_k3s_server_service
+      changed_when: false
+      failed_when: false
+
+    - name: Installer la version K3s épinglée du serveur
+      ansible.builtin.command:
+        argv:
+          - "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: server
+        INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+      when: >-
+        t07_k3s_server_version.rc != 0 or
+        k3s_version not in t07_k3s_server_version.stdout or
+        t07_k3s_server_service.rc != 0
+      no_log: true
+
+    - name: Appliquer les changements du serveur
+      ansible.builtin.meta: flush_handlers
+
+    - name: Vérifier que le serveur reste actif
+      ansible.builtin.systemd_service:
+        name: k3s
+        state: started
+        enabled: true
+
+    - name: Attendre l'API Kubernetes
+      ansible.builtin.wait_for:
+        host: "{{ ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 180
+
+    - name: Attendre la création du DaemonSet Cilium
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - get
+          - daemonset/cilium
+      register: t07_cilium_daemonset
+      changed_when: false
+      retries: 60
+      delay: 5
+      until: t07_cilium_daemonset.rc == 0
+
+    - name: Attendre Cilium sur le control plane
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - rollout
+          - status
+          - daemonset/cilium
+          - --timeout=600s
+      changed_when: false
+
+    - name: Attendre le token agent généré par K3s
+      ansible.builtin.wait_for:
+        path: /var/lib/rancher/k3s/server/agent-token
+        state: present
+        timeout: 60
+
+    - name: Lire le token agent sans l'exposer
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/agent-token
+      register: t07_k3s_agent_token
+      no_log: true
+
+  handlers:
+    - name: Redémarrer K3s server
+      ansible.builtin.systemd_service:
+        name: k3s
+        state: restarted
+        daemon_reload: true
+
+- name: Joindre le worker staging au cluster Cilium
+  hosts: staging_workers
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    t07_server_host: "{{ groups['staging_control_plane'][0] }}"
+
+  tasks:
+    - name: Vérifier l'accès du worker à l'API
+      ansible.builtin.wait_for:
+        host: "{{ hostvars[t07_server_host].ansible_host }}"
+        port: 6443
+        state: started
+        timeout: 60
+
+    - name: Créer les répertoires privés K3s
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - path: /etc/asteria
+          mode: "0755"
+        - path: /etc/rancher/k3s
+          mode: "0700"
+
+    - name: Installer le token agent protégé
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/agent-token
+        content: >-
+          {{ hostvars[t07_server_host].t07_k3s_agent_token.content
+             | b64decode | trim }}
+        owner: root
+        group: root
+        mode: "0600"
+      notify: Redémarrer K3s agent
+      no_log: true
+
+    - name: Configurer l'agent K3s staging
+      ansible.builtin.copy:
+        dest: /etc/rancher/k3s/config.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          # Géré par Ansible - T07 Asteria staging uniquement
+          server: "https://{{ hostvars[t07_server_host].ansible_host }}:6443"
+          token-file: /etc/rancher/k3s/agent-token
+          node-ip: "{{ ansible_host }}"
+      notify: Redémarrer K3s agent
+
+    - name: Lire la version K3s éventuellement présente
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - --version
+      register: t07_k3s_agent_version
+      changed_when: false
+      failed_when: false
+
+    - name: Vérifier la présence du service agent
+      ansible.builtin.command:
+        argv:
+          - systemctl
+          - cat
+          - k3s-agent.service
+      register: t07_k3s_agent_service
+      changed_when: false
+      failed_when: false
+
+    - name: Installer la version K3s épinglée de l'agent
+      ansible.builtin.command:
+        argv:
+          - "/usr/local/src/k3s-install-{{ k3s_version }}.sh"
+      environment:
+        INSTALL_K3S_VERSION: "{{ k3s_version }}"
+        INSTALL_K3S_EXEC: agent
+        INSTALL_K3S_SKIP_SELINUX_RPM: "true"
+      when: >-
+        t07_k3s_agent_version.rc != 0 or
+        k3s_version not in t07_k3s_agent_version.stdout or
+        t07_k3s_agent_service.rc != 0
+      no_log: true
+
+    - name: Appliquer les changements de l'agent
+      ansible.builtin.meta: flush_handlers
+
+    - name: Vérifier que l'agent reste actif
+      ansible.builtin.systemd_service:
+        name: k3s-agent
+        state: started
+        enabled: true
+
+  handlers:
+    - name: Redémarrer K3s agent
+      ansible.builtin.systemd_service:
+        name: k3s-agent
+        state: restarted
+        daemon_reload: true
+
+- name: Installer les garde-fous déclaratifs et fermer le bootstrap T07
+  hosts: staging_control_plane
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Attendre les deux nœuds Ready
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - wait
+          - --for=condition=Ready
+          - nodes
+          - --all
+          - --timeout=600s
+      changed_when: false
+
+    - name: Attendre Cilium sur les deux nœuds
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - rollout
+          - status
+          - daemonset/cilium
+          - --timeout=600s
+      changed_when: false
+
+    - name: Lire l'état de progression Hubble Relay
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - get
+          - deployment/hubble-relay
+          - --output=jsonpath={.status.conditions[?(@.type=="Progressing")].reason}
+      register: t07_hubble_progress_reason
+      changed_when: false
+
+    - name: Relancer Hubble après un bootstrap réseau interrompu
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - rollout
+          - restart
+          - deployment/hubble-relay
+      when: t07_hubble_progress_reason.stdout == "ProgressDeadlineExceeded"
+      changed_when: true
+
+    - name: Attendre Hubble Relay
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - rollout
+          - status
+          - deployment/hubble-relay
+          - --timeout=600s
+      changed_when: false
+
+    - name: Attendre les composants système K3s
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace=kube-system
+          - rollout
+          - status
+          - "deployment/{{ item }}"
+          - --timeout=300s
+      loop:
+        - coredns
+        - local-path-provisioner
+        - metrics-server
+      changed_when: false
+
+    - name: Installer la fondation sécurité et les probes T07
+      ansible.builtin.copy:
+        src: ../../../k8s/target-foundation/t07-foundation.yaml
+        dest: /var/lib/rancher/k3s/server/manifests/t07-foundation.yaml
+        owner: root
+        group: root
+        mode: "0600"
+
+    - name: Attendre les workloads de validation
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/k3s
+          - kubectl
+          - --namespace={{ t07_validation_namespace }}
+          - wait
+          - --for=condition=Ready
+          - pods
+          - --all
+          - --timeout=300s
+      register: t07_validation_pods
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: t07_validation_pods.rc == 0
+
+    - name: Poser le marqueur de propriété sur le serveur
+      ansible.builtin.copy:
+        dest: /etc/asteria/t07-staging-managed
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          mission=T07
+          scope=staging-only
+          source-cluster=untouched
+          state=ready
+
+    - name: Poser le marqueur de propriété sur le worker
+      ansible.builtin.copy:
+        dest: /etc/asteria/t07-staging-managed
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          mission=T07
+          scope=staging-only
+          source-cluster=untouched
+          state=ready
+      delegate_to: "{{ groups['staging_workers'][0] }}"
+
+  handlers:
+    - name: Redémarrer K3s server
+      ansible.builtin.systemd_service:
+        name: k3s
+        state: restarted

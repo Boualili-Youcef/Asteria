@@ -28,6 +28,8 @@ passe, token ou kubeconfig n'est copié automatiquement sur le bastion.
 - `playbooks/t06-*.yml` : proxy Teleport, agents, RBAC Kubernetes et mTLS
   PostgreSQL ; le runbook et le backup T06 portent les commandes et limites
   détaillées.
+- `playbooks/t07-kubernetes-foundation.yml` : cluster K3s/Cilium et garde-fous
+  de sécurité, exclusivement sur les deux VM staging.
 
 ## Prérequis locaux
 

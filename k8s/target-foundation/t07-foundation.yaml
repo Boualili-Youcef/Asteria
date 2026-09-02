@@ -1,0 +1,412 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: t07-validation
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: v1.36
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.36
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: t07-observer
+  namespace: t07-validation
+automountServiceAccountToken: false
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: t07-workload
+  namespace: t07-validation
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: t07-observer
+  namespace: t07-validation
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - pods
+      - services
+      - persistentvolumeclaims
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: t07-observer
+  namespace: t07-validation
+subjects:
+  - kind: ServiceAccount
+    name: t07-observer
+    namespace: t07-validation
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: t07-observer
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: t07-budget
+  namespace: t07-validation
+spec:
+  hard:
+    pods: "10"
+    requests.cpu: "500m"
+    requests.memory: 512Mi
+    limits.cpu: "1"
+    limits.memory: 1Gi
+    persistentvolumeclaims: "2"
+    requests.storage: 1Gi
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: t07-defaults
+  namespace: t07-validation
+spec:
+  limits:
+    - type: Container
+      defaultRequest:
+        cpu: 10m
+        memory: 16Mi
+      default:
+        cpu: 50m
+        memory: 64Mi
+      max:
+        cpu: 500m
+        memory: 512Mi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: t07-validation
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: t07-validation
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-client-to-echo
+  namespace: t07-validation
+spec:
+  podSelector:
+    matchLabels:
+      app: client
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: echo
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-echo-from-client
+  namespace: t07-validation
+spec:
+  podSelector:
+    matchLabels:
+      app: echo
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: client
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t07-echo-content
+  namespace: t07-validation
+data:
+  index.html: allowed-by-explicit-policy
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: t07-blocked-content
+  namespace: t07-validation
+data:
+  index.html: must-not-be-reachable
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: t07-validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo
+  template:
+    metadata:
+      labels:
+        app: echo
+    spec:
+      serviceAccountName: t07-workload
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: staging-k8s-worker-01
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: http
+          image: busybox:1.37.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - httpd
+            - -f
+            - -p
+            - "8080"
+            - -h
+            - /www
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: content
+              mountPath: /www
+              readOnly: true
+      volumes:
+        - name: content
+          configMap:
+            name: t07-echo-content
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: t07-validation
+spec:
+  selector:
+    app: echo
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: blocked
+  namespace: t07-validation
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: blocked
+  template:
+    metadata:
+      labels:
+        app: blocked
+    spec:
+      serviceAccountName: t07-workload
+      automountServiceAccountToken: false
+      nodeSelector:
+        kubernetes.io/hostname: staging-k8s-worker-01
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: http
+          image: busybox:1.37.0
+          imagePullPolicy: IfNotPresent
+          command:
+            - httpd
+            - -f
+            - -p
+            - "8080"
+            - -h
+            - /www
+          ports:
+            - name: http
+              containerPort: 8080
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: content
+              mountPath: /www
+              readOnly: true
+      volumes:
+        - name: content
+          configMap:
+            name: t07-blocked-content
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: blocked
+  namespace: t07-validation
+spec:
+  selector:
+    app: blocked
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: client
+  namespace: t07-validation
+  labels:
+    app: client
+spec:
+  serviceAccountName: t07-workload
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: staging-k8s-control-plane-01
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: client
+      image: busybox:1.37.0
+      imagePullPolicy: IfNotPresent
+      command:
+        - sleep
+        - "86400"
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: t07-local-path
+  namespace: t07-validation
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 64Mi
+  storageClassName: local-path
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: storage-probe
+  namespace: t07-validation
+  labels:
+    app: storage-probe
+spec:
+  serviceAccountName: t07-workload
+  automountServiceAccountToken: false
+  nodeSelector:
+    kubernetes.io/hostname: staging-k8s-worker-01
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: storage-probe
+      image: busybox:1.37.0
+      imagePullPolicy: IfNotPresent
+      command:
+        - sh
+        - -ec
+        - printf 't07-storage-ok\n' > /data/probe && sleep 86400
+      securityContext:
+        allowPrivilegeEscalation: false
+        readOnlyRootFilesystem: true
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: t07-local-path
