@@ -3,8 +3,8 @@
 ## But et statut
 
 Créer dans le projet OpenStack secondaire un staging isolé de deux VM, sans
-modifier le source. T05 est **en cours** : le code est préparé, mais aucun plan
-authentifié ni apply n'est encore autorisé.
+modifier le source. T05 est **terminée** : le plan authentifié, l'apply, les
+tests réseau et le rollback de la règle temporaire ont été validés.
 
 T05 traite `ASIS-020` et prépare `ASIS-001`, `ASIS-022`, `REQ-SEC-012`,
 `REQ-DATA-009` et `REQ-SVC-011`. T04 est revalidée ; ADR-002, ADR-004 et ADR-014
