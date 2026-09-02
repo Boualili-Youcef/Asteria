@@ -1,0 +1,104 @@
+flowchart TB
+    Candidate[[CANDIDAT AS-IS - NON VALIDE<br/>Aucun deploiement ni changement Terraform autorise<br/>avant inventaire du second projet]]
+
+    Users[Clients B2B]
+    Devs[Equipes de developpement]
+    Ops[Equipe Platform / DevOps]
+    Corp[VPN / reseau entreprise]
+    DNS[DNS public - reference entreprise]
+    Git[Repos Git externes ou partages]
+
+    subgraph OPENSTACK[Cloud OpenStack prive - deux projets isoles]
+        Provider[Underlay provider partagee potentielle<br/>connectivite inter-projets a confirmer]
+
+        subgraph PROD[Projet A - Production reduite<br/>quotas confirmes: 8 instances / 10 vCPU / 20 Go]
+            ProdPorts[Ports et SG Terraform du projet A]
+            Bastion[Bastion admin<br/>1 vCPU / 1 Go]
+
+            subgraph K8S[Cluster K3s production-like<br/>6 vCPU / 12 Go]
+                CP[Control plane non HA<br/>2 vCPU / 4 Go]
+                W1[Worker 01<br/>2 vCPU / 4 Go]
+                W2[Worker 02<br/>2 vCPU / 4 Go]
+                Ingress[ingress-nginx<br/>NodePort prive 30080 / 30443]
+                Apps[identity-api + orders-api<br/>notifications-worker]
+                Redis[Redis partage]
+                CoreDNS[CoreDNS<br/>namespace kube-system<br/>target Kubernetes annotee]
+
+                subgraph MON[namespace monitoring - observabilite partielle M12]
+                    NodeExporter[node-exporter 1.11.1<br/>DaemonSet: 3 Pods<br/>un par noeud]
+                    Prometheus[Prometheus 3.12.0<br/>1 replica - Service ClusterIP<br/>retention 24 h / 800 MB<br/>stockage emptyDir]
+                    Grafana[Grafana 13.1.0<br/>1 replica - Service ClusterIP<br/>dashboard manuel Asteria AS-IS Nodes<br/>stockage emptyDir<br/>consultation anonyme privee]
+                    GrafanaIngress[Ingress Grafana prive<br/>grafana.asteria.local]
+                end
+
+                ManualLogs[[Logs non centralises<br/>consultation avec kubectl logs]]
+                MonitoringDebt[[Dette AS-IS monitoring<br/>pas d Alertmanager, SLO ou traces<br/>pas de logs centralises<br/>pas d exporters PostgreSQL / Redis]]
+            end
+
+            DB[(PostgreSQL primaire unique<br/>2 vCPU / 4 Go)]
+        end
+
+        subgraph SHARED[Projet B - Services partages candidat<br/>quotas verifies: 4 instances / 4 vCPU / 8 Go]
+            SharedPorts[Ports et SG propres au projet B]
+            Runner[Runner CI partage<br/>1 vCPU / 2 Go]
+            Registry[Registry conteneurs<br/>1 vCPU / 2 Go]
+            Backup[MinIO / cible de sauvegarde lab<br/>1 vCPU / 2 Go]
+            Margin[Capacite non allouee<br/>1 instance / 1 vCPU / 2 Go]
+        end
+    end
+
+    Users --> DNS
+    DNS -. entree entreprise non reproduite .-> Ingress
+    Ingress --> Apps
+    Apps --> DB
+    Apps --> Redis
+
+    CP -. heberge un Pod .-> NodeExporter
+    W1 -. heberge un Pod .-> NodeExporter
+    W2 -. heberge un Pod .-> NodeExporter
+    NodeExporter -->|scrape metrics| Prometheus
+    CoreDNS -->|scrape metrics| Prometheus
+    Prometheus -->|auto-scrape| Prometheus
+    Prometheus -->|datasource| Grafana
+    Ingress -->|Host grafana.asteria.local| GrafanaIngress
+    GrafanaIngress --> Grafana
+    Apps -. metrics applicatives apres M14 .-> Prometheus
+    Apps -. consultation manuelle .-> ManualLogs
+    Prometheus -. limites .-> MonitoringDebt
+    Grafana -. limites .-> MonitoringDebt
+
+    Devs --> Git --> Runner
+    Runner -->|build et push heterogenes| Registry
+    W1 -->|pull images| Registry
+    W2 -->|pull images| Registry
+    DB -. backups irreguliers .-> Backup
+
+    Ops --> Corp --> Bastion
+    Bastion -->|NodePort 30080<br/>acces Grafana prive| Ingress
+    Bastion --> CP
+    Bastion --> W1
+    Bastion --> W2
+    Bastion --> DB
+    Bastion -. administration par IP stricte .-> Runner
+    Bastion -. administration par IP stricte .-> Registry
+    Bastion -. administration par IP stricte .-> Backup
+
+    Provider --- ProdPorts
+    Provider -. acces a verifier .- SharedPorts
+    ProdPorts --- Bastion
+    ProdPorts --- CP
+    ProdPorts --- W1
+    ProdPorts --- W2
+    ProdPorts --- DB
+    SharedPorts --- Runner
+    SharedPorts --- Registry
+    SharedPorts --- Backup
+
+    Isolation[[Isolation inter-projets<br/>credentials, quotas, states Terraform et SG separes<br/>flux croises par IP CIDR stricte si le cloud les autorise]]
+    Scope[[Phase 1 conservee<br/>K3s, PostgreSQL et monitoring restent dans le projet A<br/>pas de HA, DR, staging ou GitOps ajoute prematurement]]
+    Inventory[[Prerequis avant adoption<br/>inventorier quotas, flavors, images, reseau, ports, SG<br/>metadata service et connectivite entre projets]]
+
+    PROD -.-> Isolation
+    SHARED -.-> Isolation
+    OPENSTACK -.-> Scope
+    Candidate -.-> Inventory

@@ -1,0 +1,84 @@
+flowchart TB
+    Approved[[CIBLE LAB APPROUVEE T03<br/>second projet = staging CAP-05<br/>pas de green production, HA de zone ou DR revendique]]
+
+    Admin[Administrateur]
+    Dev[Developpeur]
+    User[Utilisateur synthetique]
+    GitHubId[GitHub SSO + MFA<br/>Teleport Community]
+    AppId[Keycloak OIDC lab<br/>identites synthetiques]
+    GitHub[GitHub Actions + depot GitOps]
+    GHCR[GHCR<br/>digest + provenance]
+    ExternalS3[(Cible S3 compatible externe<br/>requise mais non fournie par OpenStack<br/>a qualifier avant T15)]
+
+    subgraph OPENSTACK[OpenStack prive - deux projets et une seule AZ nova]
+        Provider[Reseau provider partage prive<br/>aucun L3, LB, Cinder ou objet]
+
+        subgraph SOURCE[Projet source - production-like]
+            Bastion[Bastion 1 vCPU / 1 Go<br/>Teleport lab mesure en T06<br/>SSH break-glass conserve]
+            Current[AS-IS preserve pendant T05-T17<br/>K3s Flannel + applications]
+            PG[(PostgreSQL VM conservee<br/>TLS + pgBackRest/PITR en T10)]
+            Future[Production lab reconstruite apres T17<br/>K3s + Cilium/Hubble<br/>fondation repetee sur staging]
+        end
+
+        subgraph STAGING[Projet secondaire - staging uniquement 4 vCPU / 8 Go]
+            StageCP[Control plane K3s<br/>2 vCPU / 4 Go]
+            StageWorker[Worker K3s<br/>2 vCPU / 4 Go]
+            Cilium[Cilium + Hubble<br/>default-deny]
+            Envoy[Gateway API + Envoy<br/>NodePort prive + TLS]
+            Argo[Argo CD non HA]
+            Policy[PSA + Kyverno]
+            Secrets[OpenBao Raft mono-noeud<br/>+ External Secrets]
+            Identity[Keycloak mono-noeud]
+            StageApps[3 applications<br/>donnees synthetiques]
+            Cache[Valkey cache]
+            Bus[NATS JetStream mono-noeud]
+            Obs[Prometheus + Alertmanager<br/>Grafana + Loki + Tempo + OTel]
+        end
+    end
+
+    Admin --> GitHubId --> Bastion
+    Admin -. secours audite .-> Bastion
+    Bastion --> Current
+    Bastion --> StageCP
+
+    Dev --> GitHub --> GHCR
+    GitHub --> Argo
+    GHCR --> Argo --> StageApps
+    User --> AppId --> Envoy --> StageApps
+
+    StageCP --- StageWorker
+    Cilium --- StageCP
+    Cilium --- StageWorker
+    Policy -. admission .-> StageApps
+    Secrets --> StageApps
+    Identity --> StageApps
+    StageApps --> Cache
+    StageApps --> Bus
+    StageApps --> Obs
+
+    Provider --- Current
+    Provider --- StageCP
+    Provider --- StageWorker
+    Current -. reconstruction finale .-> Future
+    PG --- Current
+    PG --- Future
+
+    PG -->|base backups + WAL| ExternalS3
+    Secrets -->|snapshot| ExternalS3
+    StageCP -->|Velero/Kopia| ExternalS3
+
+    Rollback[[ROLLBACK<br/>source intact jusqu aux tests T17<br/>backups T04/T15 avant reconstruction]]
+    Current -. chemin de repli .-> Rollback
+    Future -. restauration K3s + retour entree .-> Rollback
+    Approved -. gouverne .-> OPENSTACK
+
+    classDef source fill:#fee2e2,stroke:#dc2626,color:#7f1d1d;
+    classDef target fill:#dcfce7,stroke:#15803d,color:#14532d;
+    classDef security fill:#f3e8ff,stroke:#7e22ce,color:#581c87;
+    classDef external fill:#fef3c7,stroke:#b45309,color:#78350f;
+    classDef note fill:#f3f4f6,stroke:#4b5563,color:#111827;
+    class Current,PG source;
+    class Future,StageCP,StageWorker,Cilium,Envoy,Argo,Policy,StageApps,Cache,Bus,Obs target;
+    class GitHubId,AppId,Bastion,Secrets,Identity security;
+    class GitHub,GHCR,ExternalS3 external;
+    class Approved,Rollback note;

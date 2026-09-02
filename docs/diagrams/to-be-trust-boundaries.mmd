@@ -14,7 +14,7 @@ flowchart LR
         Desired[Source de verite CD]
     end
 
-    subgraph PROJECT_TARGET[Projet OpenStack cible - role a confirmer T02]
+    subgraph PROJECT_TARGET[Projet OpenStack secondaire - staging CAP-05]
         Access[Plan d acces privilegie]
         Edge[Gateway TLS]
 
@@ -52,8 +52,9 @@ flowchart LR
         Backup[Backups chiffres et catalogue]
     end
 
-    subgraph PROJECT_SOURCE[Projet OpenStack AS-IS pendant migration]
-        Existing[Plateforme source preservee]
+    subgraph PROJECT_SOURCE[Projet OpenStack source - production-like]
+        Existing[Plateforme AS-IS preservee jusqu a T17]
+        Future[Cluster source reconstruit apres repetition staging]
     end
 
     ExternalUser -->|TB-01 reseau non fiable| Edge
@@ -94,6 +95,7 @@ flowchart LR
     CLUSTER -->|TB-09 etat recuperable| Backup
 
     Existing <-.->|TB-10 aucun transit implicite| PROJECT_TARGET
+    Existing -. migration controlee .-> Future
 
     classDef actor fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e;
     classDef security fill:#f3e8ff,stroke:#7e22ce,color:#581c87;

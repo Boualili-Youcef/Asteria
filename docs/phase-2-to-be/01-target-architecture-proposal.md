@@ -2,9 +2,11 @@
 
 ## 1. Statut
 
-Ce document est le **candidat initial T00**, pas encore l'architecture finale.
-Il fournit une direction cohérente à challenger avec les objectifs T01, les
-capacités T02 et les ADR T03.
+Ce document conserve la **proposition initiale T00**. Elle a été évaluée par
+T01/T02 puis remplacée, le 30 août 2026, par l'architecture approuvée dans
+`09-target-architecture-decisions.md` et les ADR-002 à ADR-014. Les divergences
+entre ce candidat historique et la décision T03 sont intentionnelles : le lab
+n'a notamment pas la capacité d'héberger un green de production complet.
 
 Deux vues sont obligatoires :
 

@@ -1,81 +1,95 @@
+---
+title: Architecture AS-IS validee - fin de phase 1 M16
+---
 flowchart TB
+    Snapshot[[Etat observe le 26 juillet 2026<br/>M00 a M16 terminees<br/>AS-IS fonctionnel mais volontairement imparfait]]
+
     Users[Clients B2B / utilisateurs]
-    Devs[Equipes de dev]
+    Devs[Equipes de developpement]
     Ops[Equipe Platform / DevOps]
     Sec[Equipe Securite / Audit]
+    AdminWS[Poste administrateur LOCAL<br/>depot + state Terraform + Ansible<br/>cle SSH + secrets locaux]
     Corp[VPN / reseau entreprise]
 
-    subgraph REALITY[Reference entreprise simulee]
-        RealNote[PME 100-500 employes<br/>OpenStack prive pour controle/souverainete<br/>en entreprise: DMZ, management, application et data segmentes]
-        RealIngress[Entree HTTPS entreprise<br/>DNS + load balancer / floating IP]
+    subgraph REALITY[Reference entreprise simulee - non reproduite integralement]
+        RealNote[PME SaaS 100-500 employes<br/>OpenStack prive pour controle et souverainete<br/>zones DMZ, management, application et data]
+        RealIngress[Entree HTTPS entreprise<br/>DNS + load balancer ou Floating IP<br/>certificat metier]
     end
 
-    subgraph EXT[Services externes et partages]
-        DNS[DNS public reel]
-        Git[Repos Git]
+    subgraph EXT[Services externes et chaine de livraison]
+        DNS[DNS public de reference]
+        Git[Depot GitHub]
         CIHosted[GitHub Actions<br/>deux workflows specifiques]
-        Reg[GHCR lab<br/>Identity + Orders publies en M15]
-        Obj[Stockage objet backups<br/>Reference entreprise<br/>non deploye dans le lab]
-        Artifacts[Artefacts CI/CD<br/>reports partiels, packages<br/>SBOM non systematique]
+        CIIdentity[Identity<br/>build + push<br/>sans tests ni scan]
+        CIOrders[Orders<br/>5 tests + build + push<br/>sans scan ni SBOM]
+        Reg[GHCR<br/>images Identity + Orders M15<br/>tags SHA/main + digests]
+        Artifacts[Artefacts partiels<br/>references images + JUnit Orders<br/>retention 7 jours]
+        LocalBuild[Builds locaux M13<br/>trois images applicatives]
+        ManualNotif[Notifications M15<br/>build local<br/>push manuel optionnel]
+        Obj[Stockage objet de reference<br/>non deploye dans le lab]
     end
 
-    subgraph LAB[Implementation lab OpenStack<br/>8 instances max / 10 vCPU / 20GB RAM]
-        ProviderNet[Reseau provider partage prive<br/>172.28.0.0/16<br/>seul underlay disponible]
-        Limits[Contraintes Neutron du lab<br/>pas de reseau self-service<br/>pas de routeur L3<br/>pas de Floating IP / Octavia]
-        Ports[Ports Neutron geres par Terraform<br/>IP attribuees par le cloud]
+    subgraph LAB[Lab OpenStack prive - 5 VM / 9 vCPU / 17 Go]
+        ProviderNet[Reseau provider partage prive<br/>172.28.0.0/16<br/>unique underlay disponible]
+        Limits[Limites Neutron observees<br/>pas de reseau self-service ni routeur L3<br/>pas de Floating IP ni Octavia]
+        Ports[5 ports Neutron geres par Terraform<br/>IP attribuees par le cloud<br/>security groups par role]
 
-        subgraph TRUST[Zones de confiance logiques par security groups]
-            subgraph MGMT[Zone management logique]
-                Bastion[Bastion + admin workstation<br/>1 vCPU / 1GB<br/>SG bastion]
+        subgraph TRUST[Zones de confiance logiques]
+            subgraph MGMT[Zone management]
+                Bastion[Bastion d administration<br/>1 vCPU / 1 Go<br/>kubectl + kubeconfig + outils admin<br/>sans state Terraform ni cle privee locale]
             end
 
-            subgraph APPZONE[Zone application logique]
-                subgraph K8S[Cluster Kubernetes prod-like reduit<br/>control plane non HA<br/>overlay K3s Flannel VXLAN]
-                    CP[control-plane-01<br/>2 vCPU / 4GB<br/>SG control-plane]
-                    W1[worker-01<br/>2 vCPU / 4GB<br/>SG workers + ingress]
-                    W2[worker-02<br/>2 vCPU / 4GB<br/>SG workers + ingress]
-                    M13Images[Images M13 locales<br/>importees manuellement dans containerd<br/>sur les trois noeuds]
+            subgraph APPZONE[Zone application]
+                subgraph K8S[Cluster K3s v1.36.2 - Flannel VXLAN<br/>Pods 10.42.0.0/16 - Services 10.43.0.0/16]
+                    CP[Control plane unique<br/>2 vCPU / 4 Go<br/>SQLite local + taint NoSchedule]
+                    W1[Worker 01<br/>2 vCPU / 4 Go<br/>workloads + ingress]
+                    W2[Worker 02<br/>2 vCPU / 4 Go<br/>workloads + ingress]
+                    M13Images[Images M13 importees manuellement<br/>dans containerd sur CP + W1 + W2<br/>images runtime actuelles]
 
-                    Ingress[namespace ingress-nginx<br/>NGINX Ingress Controller<br/>NodePort 30080 / 30443<br/>accessible depuis bastion]
+                    Ingress[ingress-nginx<br/>2 replicas, un par worker<br/>NodePort prive 30080 / 30443<br/>aucune IP externe]
+                    CoreDNS[CoreDNS K3s<br/>endpoint metrics 9153]
 
                     subgraph IDNS[namespace team-identity]
-                        Identity[identity-api<br/>deploiement YAML brut]
+                        Identity[identity-api - 1 replica<br/>YAML brut<br/>health + ready + metrics]
                     end
 
                     subgraph ORDNS[namespace team-orders]
-                        Orders[orders-api<br/>chart Helm interne]
+                        Orders[orders-api - 1 replica<br/>chart Helm interne<br/>health + ready + metrics]
                     end
 
                     subgraph NOTIFNS[namespace team-notifications]
-                        Notif[notifications-worker<br/>deploiement manuel kubectl apply]
+                        Notif[notifications-worker - 1 replica<br/>kubectl apply manuel<br/>status + ready + metrics<br/>aucun Ingress]
                     end
 
                     subgraph SHARED[namespace shared]
-                        Redis[Redis partage<br/>isolation faible]
+                        Redis[Redis partage - 1 replica<br/>master sans replica<br/>default nopass + commandes completes<br/>PVC local-path 1 Gi]
                     end
 
-                    subgraph MON[namespace monitoring]
-                        Prom[Prometheus partiel]
-                        Graf[Grafana dashboards manuels]
-                        Logs[Logs non centralises<br/>usage frequent kubectl logs]
+                    subgraph MON[namespace monitoring - observabilite partielle]
+                        Prom[Prometheus - 1 replica<br/>pull des endpoints metrics<br/>emptyDir + retention 24 h]
+                        Graf[Grafana - 1 replica<br/>dashboard Asteria AS-IS Nodes<br/>Viewer anonyme sur chemin prive]
+                        NodeExporter[DaemonSet node-exporter<br/>3 Pods : CP + W1 + W2<br/>metrics port 9100]
+                        Logs[Logs non centralises<br/>consultation manuelle kubectl logs<br/>aucune collecte de traces]
+                        Coverage[[8 targets UP<br/>Prometheus + CoreDNS<br/>3 node-exporters + 3 applications]]
                     end
                 end
             end
 
-            subgraph DATAZONE[Zone data logique]
-                DB[(PostgreSQL VM separee<br/>2 vCPU / 4GB<br/>primary seul, pas de HA<br/>SG postgres)]
-                DBBackup[(Sauvegarde initiale locale<br/>pas de planification<br/>restore non teste)]
+            subgraph DATAZONE[Zone data]
+                DB[(PostgreSQL 16 VM separee<br/>2 vCPU / 4 Go - primary unique<br/>identity_db / identity_app<br/>orders_db / orders_app<br/>notifications_db / notifications_app)]
+                DBBackup[(Sauvegarde initiale locale<br/>globals + 3 dumps + SHA256SUMS<br/>sans planification ni restauration testee)]
             end
         end
     end
 
     Users --> DNS --> RealIngress
-    RealIngress -. reference entreprise non reproduite dans le lab .-> Ingress
-    Ops --> Corp --> Bastion
-    Sec --> Corp --> Bastion
-    Bastion -->|NodePort prive| Ingress
-    Ingress --> Identity
-    Ingress --> Orders
+    RealIngress -. entree entreprise non reproduite .-> Ingress
+
+    Ops --> AdminWS
+    Sec --> Corp
+    AdminWS --> Corp
+    Corp -->|VPN + SSH| Bastion
+    AdminWS -->|Terraform vers API OpenStack| Ports
 
     ProviderNet --- Ports
     Ports --- Bastion
@@ -83,63 +97,100 @@ flowchart TB
     Ports --- W1
     Ports --- W2
     Ports --- DB
-    ProviderNet -. limitation .-> Limits
+    ProviderNet -. contraintes fournisseur .-> Limits
 
-    Identity --> DB
-    Orders --> DB
-    Orders --> Redis
-    Notif --> DB
-    Notif --> Redis
+    Bastion -->|kubectl vers API 6443| CP
+    Bastion -->|SSH admin| W1
+    Bastion -->|SSH admin| W2
+    Bastion -->|SSH admin| DB
+    Bastion -->|NodePort prive| Ingress
+    Ingress -->|identity.asteria.local| Identity
+    Ingress -->|orders.asteria.local| Orders
+    Ingress -->|grafana.asteria.local| Graf
+
+    Identity -->|SQL TCP 5432| DB
+    Orders -->|SQL TCP 5432| DB
+    Notif -->|archive SQL TCP 5432| DB
+    Orders -->|RPUSH evenement| Redis
+    Redis -->|BLPOP evenement| Notif
+
+    Prom -->|scrape /metrics 8080| Identity
+    Prom -->|scrape /metrics 8080| Orders
+    Prom -->|scrape /metrics 8080| Notif
+    Prom -->|scrape metrics 9100| NodeExporter
+    Prom -->|scrape metrics 9153| CoreDNS
+    Graf -->|requetes PromQL| Prom
+    NodeExporter ---|1 Pod| CP
+    NodeExporter ---|1 Pod| W1
+    NodeExporter ---|1 Pod| W2
+    Prom -. inventaire observe .-> Coverage
+    Identity -. logs locaux .-> Logs
+    Orders -. logs locaux .-> Logs
+    Notif -. logs locaux .-> Logs
+    Bastion -->|kubectl logs| Logs
 
     Devs --> Git --> CIHosted
-    CIHosted --> CIIdentity[identity pipeline<br/>build + push<br/>pas de scan]
-    CIHosted --> CIOrders[orders pipeline<br/>tests + build + push<br/>pas de SBOM]
-    Devs --> ManualDeploy[notifications<br/>build/deploy manuel]
-    CIIdentity --> Reg
-    CIOrders --> Reg
-    ManualDeploy --> M13Images
+    CIHosted --> CIIdentity --> Reg
+    CIHosted --> CIOrders --> Reg
+    CIIdentity -. reference image .-> Artifacts
+    CIOrders -. JUnit + reference image .-> Artifacts
+    AdminWS --> LocalBuild
+    LocalBuild -->|docker save + SSH + ctr import| M13Images
     M13Images --> Identity
     M13Images --> Orders
     M13Images --> Notif
-    CIIdentity -. rapports partiels .-> Artifacts
-    CIOrders -. rapports partiels .-> Artifacts
-
-    Bastion --> CP
-    Bastion --> W1
-    Bastion --> W2
-    Bastion --> DB
-    Sec -. audit manuel .-> Git
-    Sec -. audit manuel .-> Reg
-    Sec -. revue manuelle manifests/RBAC .-> CP
-
-    Identity -. metrics partielles .-> Prom
-    Orders -. metrics partielles .-> Prom
-    Notif -. logs/metrics incomplets .-> Prom
-    CP -. node/control metrics .-> Prom
-    W1 -. node metrics .-> Prom
-    W2 -. node metrics .-> Prom
-    Prom --> Graf
-    Identity -. kubectl logs manuel .-> Logs
-    Orders -. kubectl logs manuel .-> Logs
-    Notif -. kubectl logs manuel .-> Logs
+    AdminWS --> ManualNotif
 
     DB --> DBBackup
     DBBackup -. aucune copie objet .-> Obj
 
-    D1[[Dette AS-IS: CI/CD heterogene<br/>pas de golden path]]
-    D2[[Dette AS-IS: pas de GitOps commun<br/>deploiements directs possibles]]
-    D3[[Dette AS-IS: securite K8s incomplete<br/>RBAC partiel, peu de NetworkPolicies]]
-    D4[[Dette AS-IS: observabilite partielle<br/>pas de SLO ni alerting homogene]]
-    D5[[Dette AS-IS: backup DB initial local<br/>pas de snapshots K3s ni restore teste]]
-    L1[[Limite lab: underlay plat partage<br/>segmentation compensee par SG + overlay K3s]]
-    L2[[Limite lab: 5 instances / 9 vCPU / 17GB RAM<br/>production reelle plus large et HA]]
+    Sec -. audit manuel .-> Git
+    Sec -. audit manuel .-> Reg
+    Sec -. revue manifests et RBAC .-> CP
+
+    D1[[Dette livraison<br/>CI/CD heterogene<br/>aucune golden path]]
+    D2[[Dette deploiement<br/>images GHCR M15 publiees mais non deployeees<br/>aucun GitOps ni promotion par digest]]
+    D3[[Dette securite Kubernetes<br/>RBAC partiel<br/>zero NetworkPolicy observee]]
+    D4[[Dette observabilite<br/>pas d alertes, SLO, logs centralises ou traces<br/>stockage monitoring ephemere]]
+    D5[[Dette disponibilite et reprise<br/>control plane, PostgreSQL et Redis uniques<br/>aucun snapshot K3s ni restore teste]]
+    D6[[Dette applicative<br/>pas d authentification metier<br/>migrations, outbox et DLQ absentes]]
+    D7[[Dette exploitation<br/>NTP non synchronise sur les 5 VM<br/>environ 7 minutes de derive observee]]
+    L1[[Limite lab<br/>underlay provider plat partage<br/>segmentation compensee par SG et controles hotes]]
+    L2[[Limite capacite<br/>quota 10 vCPU / 20 Go<br/>baseline deja a 9 vCPU / 17 Go]]
+    Legend[[Legende<br/>fleche pleine : flux ou dependance active<br/>fleche pointillee : reference, absence ou dette<br/>trait simple : relation de placement]]
 
     CIHosted -.-> D1
-    ManualDeploy -.-> D1
-    Reg -. images M15 non deployeees .-> D2
-    CP -.-> D2
+    ManualNotif -. hors runner .-> D1
+    Reg -. images non consommees par M14 .-> D2
     K8S -.-> D3
     MON -.-> D4
+    CP -.-> D5
     DBBackup -.-> D5
+    Redis -.-> D5
+    Identity -.-> D6
+    LAB -.-> D7
     ProviderNet -.-> L1
     LAB -.-> L2
+    Snapshot -.-> LAB
+
+    classDef actor fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e,stroke-width:1.5px;
+    classDef external fill:#fef3c7,stroke:#b45309,color:#78350f,stroke-width:1.2px;
+    classDef infra fill:#ede9fe,stroke:#6d28d9,color:#3b0764,stroke-width:1.2px;
+    classDef app fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:1.2px;
+    classDef data fill:#ffedd5,stroke:#c2410c,color:#7c2d12,stroke-width:1.2px;
+    classDef monitor fill:#cffafe,stroke:#0e7490,color:#164e63,stroke-width:1.2px;
+    classDef delivery fill:#fef9c3,stroke:#a16207,color:#713f12,stroke-width:1.2px;
+    classDef debt fill:#fee2e2,stroke:#dc2626,color:#7f1d1d,stroke-width:1.5px;
+    classDef limit fill:#f3f4f6,stroke:#4b5563,color:#111827,stroke-width:1.2px;
+    classDef note fill:#ffffff,stroke:#334155,color:#0f172a,stroke-width:1.5px;
+
+    class Users,Devs,Ops,Sec,AdminWS,Corp actor;
+    class DNS,Git,CIHosted,Reg,Artifacts,LocalBuild,ManualNotif,Obj,RealNote,RealIngress external;
+    class ProviderNet,Ports,Bastion,CP,W1,W2,M13Images,Ingress,CoreDNS infra;
+    class Identity,Orders,Notif app;
+    class Redis,DB,DBBackup data;
+    class Prom,Graf,NodeExporter,Logs,Coverage monitor;
+    class CIIdentity,CIOrders delivery;
+    class D1,D2,D3,D4,D5,D6,D7 debt;
+    class Limits,L1,L2 limit;
+    class Snapshot,Legend note;
