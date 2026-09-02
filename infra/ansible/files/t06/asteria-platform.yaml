@@ -1,0 +1,41 @@
+kind: role
+version: v8
+metadata:
+  name: asteria-platform
+  description: Administration Asteria courte et auditee, sans acces root direct.
+spec:
+  options:
+    max_session_ttl: 30m
+    client_idle_timeout: 10m
+    disconnect_expired_cert: true
+    require_session_mfa: true
+    forward_agent: false
+    ssh_file_copy: false
+    ssh_port_forwarding:
+      local:
+        enabled: false
+      remote:
+        enabled: false
+  allow:
+    logins:
+      - ubuntu
+    node_labels:
+      access: teleport
+    kubernetes_labels:
+      environment: source
+    kubernetes_users:
+      - "{{user.metadata.name}}"
+    kubernetes_groups:
+      - asteria:t06-platform
+    db_labels:
+      environment: source
+    db_users:
+      - asteria_readonly
+    db_names:
+      - "*"
+    rules:
+      - resources: [event, session]
+        verbs: [list, read]
+  deny:
+    logins:
+      - root

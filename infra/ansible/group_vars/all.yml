@@ -59,3 +59,13 @@ asteria_ntp_fallback_servers:
   - ntp.ubuntu.com
   - 0.ubuntu.pool.ntp.org
   - 1.ubuntu.pool.ntp.org
+
+# T06 epingle Teleport Community Edition. Le proxy lab reste mono-instance sur
+# le bastion ; TLS et l'identite du cluster utilisent une PKI privee hors Git.
+teleport_version: "18.11.0"
+teleport_cluster_name: asteria-lab
+teleport_proxy_hostname: teleport.asteria.lab
+teleport_proxy_port: 3080
+teleport_min_available_memory_mb: 256
+teleport_control_memory_max_mb: 512
+teleport_agent_memory_max_mb: 256

@@ -27,10 +27,10 @@ données ne peut être exécuté sans examen explicite de son périmètre.
 | T00 | Initialiser la transformation TO-BE | Terminée | M16 |
 | T01 | Définir SLO, RTO/RPO et modèle de menace | Terminée | T00 |
 | T02 | Réinventorier les deux projets OpenStack | Terminée | T01 |
-| T03 | Approuver l'architecture cible et les ADR | À faire | T02 |
-| T04 | Stabiliser les fondations avant migration | À faire | T03 |
-| T05 | Construire la landing zone et le chemin blue/green | À faire | T04 |
-| T06 | Mettre en place l'accès d'administration Zero Trust | À faire | T05 |
+| T03 | Approuver l'architecture cible et les ADR | Terminée | T02 |
+| T04 | Stabiliser les fondations avant migration | Terminée | T03 |
+| T05 | Construire la landing zone et le staging séparé | Terminée | T04 |
+| T06 | Mettre en place l'accès d'administration Zero Trust | Terminée | T05 |
 | T07 | Construire la fondation Kubernetes cible | À faire | T05 |
 | T08 | Migrer l'entrée vers Gateway API et TLS | À faire | T07 |
 | T09 | Industrialiser identités, secrets et politiques | À faire | T07 |
@@ -122,6 +122,11 @@ couverture `ASIS-xxx` évalués pour chaque décision.
 
 **Preuve :** `T03-target-architecture-approved.md`.
 
+**Conclusion :** treize ADR (ADR-002 à ADR-014) approuvent la cible entreprise,
+son adaptation lab et la stratégie de migration. Le second projet est staging
+CAP-05, pas un green de production, un backup ou un DR. Aucun runtime n'a été
+modifié par T03.
+
 ## T04 — Stabiliser les fondations avant migration
 
 **Objectif :** supprimer les risques immédiats qui rendent une migration peu
@@ -135,9 +140,22 @@ baseline de versions et contrôles de santé reproductibles.
 
 **Preuve :** `T04-foundations-stabilized.md`.
 
-## T05 — Construire la landing zone et le chemin blue/green
+**Conclusion :** les cinq VM sont synchronisées sur la source institutionnelle
+avec un écart mesuré nul, K3s 3/3 et PostgreSQL restent sains, le break-glass
+ProxyJump réussit et l'authentification directe est refusée. State Terraform,
+dump PostgreSQL et backup K3s sont hors Git, en mode `0600` et contrôlés par
+checksum. Le second passage NTP est idempotent (`changed=0`). Aucun apply
+Terraform, redémarrage applicatif, bascule ou destruction n'a été exécuté.
 
-**Objectif :** préparer la cible sans modifier la production AS-IS en place.
+T05 a démarré après la clôture durable de T04 et est désormais terminée. Son
+incident de ciblage initial, son rollback et ses contrôles finaux sont décrits
+dans sa propre section et sa preuve.
+
+## T05 — Construire la landing zone et le staging séparé
+
+**Objectif :** préparer le staging CAP-05 sans modifier la production AS-IS en
+place. Le blue/green reste la référence entreprise mais est impossible dans les
+quotas du lab selon T02/T03.
 
 **Contenu :** states et credentials séparés, conventions, réseau réellement
 disponible, compute/stockage, staging, sauvegarde et plan de bascule/rollback.
@@ -147,26 +165,45 @@ ressources respecté.
 
 **Preuve :** `T05-target-landing-zone-ready.md`.
 
+**Conclusion :** le projet secondaire héberge deux VM staging actives dans le
+budget CAP-05 exact. Le state et les credentials sont séparés, NTP/config-drive
+et SSH via bastion sont validés, UFW compense le contournement observé des
+security groups du réseau provider, le probe refus/succès/rollback passe et le
+dernier passage Ansible est idempotent (`changed=0`). Le state final est
+sauvegardé hors Git avec checksum. Une première tentative sur le mauvais projet
+a été intégralement annulée avant la création de VM ; le garde-fou Keystone et
+les contrôles de quotas empêchent sa répétition.
+
 ## T06 — Mettre en place l'accès d'administration Zero Trust
 
 **Objectif :** remplacer les clés SSH permanentes et le bastion quotidien par
 un accès lié à l'identité, à privilèges courts et auditable.
 
-**Cible candidate :** Teleport avec OIDC/MFA, RBAC et certificats courts. Le
-bastion actuel reste un accès break-glass testé pendant la transition.
+**Cible approuvée :** Teleport entreprise avec OIDC/MFA ; lab Community avec
+GitHub SSO/MFA, RBAC et certificats courts. Le bastion actuel reste un accès
+break-glass testé pendant la transition.
 
 **Traite :** `ASIS-001`, `ASIS-004`, `ASIS-011`.
 
 **Preuve :** `T06-zero-trust-access-ready.md`.
+
+**Conclusion :** GitHub SSO mappe l'équipe privée au rôle minimal
+`asteria-platform`. WebAuthn est exigé par session. SSH `ubuntu`, la lecture
+Kubernetes et PostgreSQL `asteria_readonly` réussissent ; `root`, la création
+de `ClusterRole`, PostgreSQL `postgres` et un certificat expiré sont refusés.
+Les événements et enregistrements sont retrouvés dans l'audit, le break-glass
+reste actif et tracé, et le second passage du connecteur est idempotent. T07 est
+désormais autorisée.
 
 ## T07 — Construire la fondation Kubernetes cible
 
 **Objectif :** fournir une fondation réseau et sécurité observable avant les
 workloads.
 
-**Cible candidate :** cluster reconstruit blue/green, Cilium comme CNI,
-NetworkPolicies default-deny, Hubble, RBAC minimal, Pod Security Admission,
-ressources/quotas et stockage validé.
+**Cible approuvée :** RKE2 HA en référence entreprise ; K3s reconstruit dans le
+lab après répétition staging, Cilium comme CNI, NetworkPolicies default-deny,
+Hubble, RBAC minimal, Pod Security Admission, ressources/quotas et stockage
+validé.
 
 La HA entreprise exige trois domaines de panne ; le lab ne peut la déclarer
 que si T02 démontre réellement ces domaines.
@@ -180,7 +217,7 @@ que si T02 démontre réellement ces domaines.
 **Objectif :** retirer ingress-nginx et fournir une entrée maintenue, portable
 et chiffrée.
 
-**Cible candidate :** Gateway API standard, Envoy Gateway, cert-manager,
+**Cible approuvée :** Gateway API standard, Envoy Gateway, cert-manager,
 HTTPRoute, TLS, politiques d'attachement inter-namespaces et exposition adaptée
 aux capacités OpenStack réelles.
 
@@ -193,7 +230,7 @@ aux capacités OpenStack réelles.
 **Objectif :** supprimer les secrets manuels et appliquer les garde-fous de
 plateforme de manière déclarative.
 
-**Cible candidate :** fournisseur OIDC, OpenBao, External Secrets, rotation,
+**Cible approuvée :** Keycloak/OIDC applicatif, OpenBao, External Secrets, rotation,
 ServiceAccounts dédiés, RBAC, Kyverno en mode audit puis enforce, vérification
 d'images et règles par namespace.
 
@@ -206,12 +243,13 @@ d'images et règles par namespace.
 **Objectif :** séparer les responsabilités data et démontrer sauvegarde,
 reprise et chiffrement.
 
-**Cible candidate :** PostgreSQL TLS avec réplication adaptée aux domaines de
-panne, sauvegarde physique/WAL et restauration ; Valkey réservé au cache ; bus
-durable distinct pour les événements, avec réplication et DLQ selon capacité.
+**Cible approuvée :** PostgreSQL TLS sur VM dans le lab avec sauvegarde
+physique/WAL et restauration ; Valkey réservé au cache ; NATS JetStream distinct
+pour les événements, avec réplication et DLQ selon capacité.
 
-CloudNativePG n'est retenu que si T02/T03 valident nœuds, stockage et domaines
-de panne. Sinon PostgreSQL reste sur VMs avec une architecture HA documentée.
+CloudNativePG est rejeté dans le lab courant par T02/T03 : absence de Cinder,
+unique AZ et quotas insuffisants. Il ne pourra être réévalué que si un futur
+inventaire prouve nœuds, stockage CSI et domaines de panne indépendants.
 
 **Traite :** `ASIS-005`, `ASIS-006`, `ASIS-007`, `ASIS-009`, `ASIS-022`.
 
@@ -245,7 +283,7 @@ résultats. Les exceptions sont explicites et temporaires.
 
 **Objectif :** rendre Git source de vérité de la configuration runtime.
 
-**Cible candidate :** Argo CD, séparation code/configuration, environnements,
+**Cible approuvée :** Argo CD, séparation code/configuration, environnements,
 promotion par digest, drift detection, politiques de sync, smoke tests et
 rollback Git documenté.
 

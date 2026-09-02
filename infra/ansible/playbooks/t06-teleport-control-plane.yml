@@ -1,0 +1,414 @@
+---
+- name: Installer le control plane Teleport Community du lab T06
+  hosts: bastion
+  become: true
+  gather_facts: true
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    t06_pki_dir: "{{ lookup('ansible.builtin.env', 'ASTERIA_T06_PKI_DIR') }}"
+    teleport_archive_name: >-
+      teleport-v{{ teleport_version }}-linux-amd64-bin.tar.gz
+    teleport_download_dir: /opt/asteria/teleport/downloads
+    teleport_install_dir: "/opt/asteria/teleport/{{ teleport_version }}"
+    teleport_proxy_address: >-
+      {{ teleport_proxy_hostname }}:{{ teleport_proxy_port }}
+
+  pre_tasks:
+    - name: Vérifier le périmètre et la PKI privée T06
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.architecture == "x86_64"
+          - t06_pki_dir | length > 1
+          - t06_pki_dir is match('^/')
+          - not t06_pki_dir.startswith(playbook_dir + '/../../..')
+          - lookup('ansible.builtin.file', t06_pki_dir + '/ca.crt') | length > 0
+          - lookup('ansible.builtin.file', t06_pki_dir + '/proxy.crt') | length > 0
+          - lookup('ansible.builtin.file', t06_pki_dir + '/proxy.key') | length > 0
+        fail_msg: >-
+          T06 exige une PKI complète dans ASTERIA_T06_PKI_DIR, chemin absolu
+          hors du dépôt.
+      no_log: true
+
+    - name: Mesurer la mémoire disponible avant Teleport
+      ansible.builtin.command:
+        argv: [awk, "/MemAvailable:/ {print int($2/1024)}", /proc/meminfo]
+      register: t06_memory_before
+      changed_when: false
+
+    - name: Arrêter si le bastion ne conserve pas la marge break-glass
+      ansible.builtin.assert:
+        that:
+          - t06_memory_before.stdout | int >= teleport_min_available_memory_mb + 128
+        fail_msg: >-
+          STOP T06: mémoire disponible insuffisante avant installation ; le
+          break-glass reste prioritaire.
+
+  tasks:
+    - name: Installer les prérequis du control plane
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - openssl
+          - ufw
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Créer les répertoires Teleport
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: /opt/asteria/teleport, mode: "0755"}
+        - {path: "{{ teleport_download_dir }}", mode: "0755"}
+        - {path: "{{ teleport_install_dir }}", mode: "0755"}
+        - {path: /etc/teleport-tls, mode: "0700"}
+        - {path: /etc/teleport-resources, mode: "0755"}
+        - {path: /var/lib/teleport, mode: "0700"}
+
+    - name: Télécharger la somme officielle Teleport
+      ansible.builtin.get_url:
+        url: >-
+          https://cdn.teleport.dev/{{ teleport_archive_name }}.sha256
+        dest: "{{ teleport_download_dir }}/{{ teleport_archive_name }}.sha256"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Télécharger Teleport Community versionné
+      ansible.builtin.get_url:
+        url: "https://cdn.teleport.dev/{{ teleport_archive_name }}"
+        dest: "{{ teleport_download_dir }}/{{ teleport_archive_name }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Vérifier la somme officielle de l'archive
+      ansible.builtin.command:
+        argv:
+          - sha256sum
+          - --check
+          - "{{ teleport_archive_name }}.sha256"
+        chdir: "{{ teleport_download_dir }}"
+      changed_when: false
+
+    - name: Extraire Teleport dans son répertoire versionné
+      ansible.builtin.unarchive:
+        src: "{{ teleport_download_dir }}/{{ teleport_archive_name }}"
+        dest: "{{ teleport_install_dir }}"
+        remote_src: true
+        creates: "{{ teleport_install_dir }}/teleport/teleport"
+        owner: root
+        group: root
+
+    - name: Publier les binaires Teleport dans le PATH
+      ansible.builtin.file:
+        src: "{{ teleport_install_dir }}/teleport/{{ item }}"
+        dest: "/usr/local/bin/{{ item }}"
+        state: link
+        force: true
+      loop: [teleport, tctl, tsh]
+
+    - name: Installer le certificat TLS du proxy
+      ansible.builtin.copy:
+        dest: /etc/teleport-tls/proxy.crt
+        content: "{{ lookup('ansible.builtin.file', t06_pki_dir + '/proxy.crt') }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: t06_proxy_cert
+
+    - name: Installer la clé TLS du proxy
+      ansible.builtin.copy:
+        dest: /etc/teleport-tls/proxy.key
+        content: "{{ lookup('ansible.builtin.file', t06_pki_dir + '/proxy.key') }}\n"
+        owner: root
+        group: root
+        mode: "0600"
+      register: t06_proxy_key
+      no_log: true
+
+    - name: Installer la CA lab dans le magasin système
+      ansible.builtin.copy:
+        dest: /usr/local/share/ca-certificates/asteria-t06-ca.crt
+        content: "{{ lookup('ansible.builtin.file', t06_pki_dir + '/ca.crt') }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: t06_ca_cert
+
+    - name: Actualiser le magasin CA
+      ansible.builtin.command: update-ca-certificates
+      when: t06_ca_cert.changed
+      changed_when: true
+
+    - name: Résoudre le nom privé du proxy sur le bastion
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: >-
+          ^{{ asteria_source_bastion_ip | regex_escape }}\s+{{ teleport_proxy_hostname | regex_escape }}$
+        line: "{{ asteria_source_bastion_ip }} {{ teleport_proxy_hostname }}"
+        state: present
+
+    - name: Créer l'utilisateur SSH de lecture sans sudo
+      ansible.builtin.user:
+        name: asteria-auditor
+        comment: Asteria T06 Teleport observer
+        create_home: true
+        shell: /bin/bash
+        password_lock: true
+
+    - name: Détecter si le connecteur GitHub a déjà été activé
+      ansible.builtin.stat:
+        path: /etc/teleport-resources/github-enabled
+      register: t06_github_enabled
+
+    - name: Configurer le control plane Teleport
+      ansible.builtin.copy:
+        dest: /etc/teleport.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          version: v3
+          teleport:
+            nodename: {{ inventory_hostname }}
+            data_dir: /var/lib/teleport
+            log:
+              output: stderr
+              severity: INFO
+          auth_service:
+            enabled: true
+            cluster_name: {{ teleport_cluster_name }}
+            proxy_protocol: off
+            proxy_listener_mode: multiplex
+            session_recording_config:
+              mode: node
+            client_idle_timeout: 15m
+            disconnect_expired_cert: yes
+            authentication:
+              # Le premier démarrage reste local : activer GitHub avant de
+              # créer le connecteur rendrait l'API indisponible. Le script SSO
+              # pose le marqueur seulement après création du connecteur.
+              type: {{ 'github' if t06_github_enabled.stat.exists else 'local' }}
+              local_auth: true
+              require_session_mfa: true
+              second_factors: [webauthn, otp]
+              webauthn:
+                rp_id: {{ teleport_proxy_hostname }}
+          proxy_service:
+            enabled: true
+            proxy_protocol: off
+            web_listen_addr: 0.0.0.0:{{ teleport_proxy_port }}
+            public_addr: {{ teleport_proxy_address }}
+            https_keypairs:
+              - key_file: /etc/teleport-tls/proxy.key
+                cert_file: /etc/teleport-tls/proxy.crt
+          ssh_service:
+            enabled: true
+            labels:
+              access: teleport
+              environment: source
+              role: bastion
+      register: t06_control_config
+
+    - name: Installer l'unité systemd Teleport protégée
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/teleport.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Asteria T06 Teleport Community control plane
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/bin/teleport start --config=/etc/teleport.yaml --pid-file=/run/teleport.pid
+          Restart=on-failure
+          RestartSec=5s
+          LimitNOFILE=8192
+          MemoryMax={{ teleport_control_memory_max_mb }}M
+          PrivateTmp=true
+          ProtectSystem=full
+
+          [Install]
+          WantedBy=multi-user.target
+      register: t06_systemd_unit
+
+    - name: Démarrer ou redémarrer Teleport
+      ansible.builtin.systemd_service:
+        name: teleport
+        enabled: true
+        state: >-
+          {{ 'restarted' if (t06_control_config.changed or
+             t06_systemd_unit.changed or t06_proxy_cert.changed or
+             t06_proxy_key.changed) else 'started' }}
+        daemon_reload: true
+
+    - name: Attendre le proxy TLS local
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ teleport_proxy_port }}"
+        timeout: 60
+
+    - name: Vérifier l'API Teleport avec la PKI privée
+      ansible.builtin.uri:
+        url: "https://{{ teleport_proxy_address }}/webapi/ping"
+        ca_path: /usr/local/share/ca-certificates/asteria-t06-ca.crt
+        return_content: true
+        status_code: 200
+      register: t06_ping
+
+    - name: Copier les rôles RBAC suivis dans Git
+      ansible.builtin.copy:
+        src: "../files/t06/{{ item }}"
+        dest: "/etc/teleport-resources/{{ item }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - asteria-observer.yaml
+        - asteria-platform.yaml
+      register: t06_role_files
+
+    - name: Appliquer les rôles RBAC modifiés
+      ansible.builtin.command:
+        argv:
+          - tctl
+          - -c
+          - /etc/teleport.yaml
+          - create
+          - --force
+          - -f
+          - /etc/teleport-resources/{{ item.item }}
+      loop: "{{ t06_role_files.results }}"
+      loop_control:
+        label: "{{ item.item }}"
+      when: item.changed
+      changed_when: true
+
+    - name: Lire l'état initial UFW
+      ansible.builtin.command:
+        argv: [ufw, status, verbose]
+      register: t06_ufw_initial
+      changed_when: false
+
+    - name: Définir la politique UFW entrante
+      ansible.builtin.command:
+        argv: [ufw, default, deny, incoming]
+      register: t06_ufw_default_incoming
+      when: "'Default: deny (incoming)' not in t06_ufw_initial.stdout"
+      changed_when: "'Default incoming policy changed' in t06_ufw_default_incoming.stdout"
+
+    - name: Définir la politique UFW sortante
+      ansible.builtin.command:
+        argv: [ufw, default, allow, outgoing]
+      register: t06_ufw_default_outgoing
+      when: "'allow (outgoing)' not in t06_ufw_initial.stdout"
+      changed_when: "'Default outgoing policy changed' in t06_ufw_default_outgoing.stdout"
+
+    - name: Autoriser le break-glass SSH depuis les CIDR administrateur
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ item }}"
+          - to
+          - any
+          - port
+          - "22"
+          - proto
+          - tcp
+          - comment
+          - Asteria T06 break-glass
+      loop: "{{ asteria_admin_cidrs }}"
+      register: t06_ufw_ssh
+      changed_when: "'Skipping adding existing rule' not in t06_ufw_ssh.stdout"
+
+    - name: Autoriser les clients et agents Teleport vers le proxy
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - from
+          - "{{ item }}"
+          - to
+          - any
+          - port
+          - "{{ teleport_proxy_port }}"
+          - proto
+          - tcp
+          - comment
+          - Asteria T06 Teleport proxy
+      loop: "{{ asteria_admin_cidrs + asteria_teleport_agent_ips }}"
+      register: t06_ufw_teleport
+      changed_when: "'Skipping adding existing rule' not in t06_ufw_teleport.stdout"
+
+    - name: Planifier le rollback UFW automatique
+      ansible.builtin.command:
+        argv:
+          - systemd-run
+          - --unit=asteria-t06-ufw-rollback
+          - --on-active=2m
+          - --collect
+          - --
+          - /usr/sbin/ufw
+          - --force
+          - disable
+      when: "'Status: inactive' in t06_ufw_initial.stdout"
+      changed_when: true
+
+    - name: Activer UFW après les règles break-glass
+      ansible.builtin.command:
+        argv: [ufw, --force, enable]
+      when: "'Status: inactive' in t06_ufw_initial.stdout"
+      changed_when: true
+
+    - name: Réinitialiser la connexion SSH après UFW
+      ansible.builtin.meta: reset_connection
+
+    - name: Confirmer le retour break-glass
+      ansible.builtin.wait_for_connection:
+        connect_timeout: 8
+        sleep: 2
+        timeout: 45
+
+    - name: Annuler le rollback UFW après validation SSH
+      ansible.builtin.shell: |
+        systemctl stop asteria-t06-ufw-rollback.timer
+        systemctl reset-failed asteria-t06-ufw-rollback.service 2>/dev/null || true
+      args:
+        executable: /bin/bash
+      when: "'Status: inactive' in t06_ufw_initial.stdout"
+      changed_when: true
+
+    - name: Mesurer la mémoire après démarrage du control plane
+      ansible.builtin.command:
+        argv: [awk, "/MemAvailable:/ {print int($2/1024)}", /proc/meminfo]
+      register: t06_memory_after
+      changed_when: false
+
+    - name: Confirmer les seuils d'arrêt et services critiques
+      ansible.builtin.assert:
+        that:
+          - t06_memory_after.stdout | int >= teleport_min_available_memory_mb
+          - t06_ping.status == 200
+        success_msg: >-
+          Teleport est sain et le bastion conserve
+          {{ t06_memory_after.stdout }} Mio disponibles.
+
+    - name: Vérifier que SSH et Teleport sont actifs
+      ansible.builtin.command:
+        argv: [systemctl, is-active, "{{ item }}"]
+      loop: [ssh, teleport]
+      changed_when: false

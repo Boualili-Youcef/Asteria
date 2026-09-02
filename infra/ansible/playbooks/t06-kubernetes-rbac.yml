@@ -1,0 +1,138 @@
+---
+- name: Créer les droits Kubernetes minimaux consommés par Teleport
+  hosts: bastion
+  become: true
+  gather_facts: false
+  vars:
+    t06_kubeconfig: /home/ubuntu/.kube/config
+
+  tasks:
+    - name: Vérifier que le kubeconfig break-glass existe
+      ansible.builtin.stat:
+        path: "{{ t06_kubeconfig }}"
+      register: t06_kubeconfig_stat
+
+    - name: Refuser de reconstruire silencieusement le kubeconfig
+      ansible.builtin.assert:
+        that:
+          - t06_kubeconfig_stat.stat.exists
+          - t06_kubeconfig_stat.stat.mode == "0600"
+
+    - name: Appliquer les rôles Kubernetes T06
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig={{ t06_kubeconfig }}
+          - apply
+          - --server-side
+          - --field-manager=asteria-t06
+          - --filename=-
+        stdin: |
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: asteria-t06-observer
+          rules:
+            - apiGroups: [""]
+              resources: ["namespaces", "nodes", "pods", "pods/log", "services", "events"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: ["apps"]
+              resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: ["batch"]
+              resources: ["jobs", "cronjobs"]
+              verbs: ["get", "list", "watch"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: asteria-t06-observer
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: asteria-t06-observer
+          subjects:
+            - apiGroup: rbac.authorization.k8s.io
+              kind: Group
+              name: asteria:t06-observer
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: asteria-t06-platform
+          rules:
+            - apiGroups: [""]
+              resources: ["namespaces", "nodes"]
+              verbs: ["get", "list", "watch"]
+            - apiGroups: [""]
+              resources:
+                - pods
+                - pods/log
+                - services
+                - endpoints
+                - events
+                - configmaps
+                - persistentvolumeclaims
+              verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+            - apiGroups: ["apps"]
+              resources: ["deployments", "statefulsets", "daemonsets", "replicasets"]
+              verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+            - apiGroups: ["batch"]
+              resources: ["jobs", "cronjobs"]
+              verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: asteria-t06-platform
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: asteria-t06-platform
+          subjects:
+            - apiGroup: rbac.authorization.k8s.io
+              kind: Group
+              name: asteria:t06-platform
+      register: t06_kube_apply
+      changed_when: >-
+        ' created' in t06_kube_apply.stdout or
+        ' configured' in t06_kube_apply.stdout
+
+    - name: Tester le succès de lecture observateur
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig={{ t06_kubeconfig }}
+          - auth
+          - can-i
+          - list
+          - pods
+          - --all-namespaces
+          - --as=t06-observer
+          - --as-group=asteria:t06-observer
+      register: t06_observer_allowed
+      changed_when: false
+
+    - name: Tester le refus de création de ClusterRole
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - --kubeconfig={{ t06_kubeconfig }}
+          - auth
+          - can-i
+          - create
+          - clusterroles
+          - --as=t06-platform
+          - --as-group=asteria:t06-platform
+      register: t06_platform_denied
+      changed_when: false
+      failed_when: >-
+        t06_platform_denied.rc != 1 or
+        t06_platform_denied.stdout | trim != "no"
+
+    - name: Confirmer la matrice Kubernetes minimale
+      ansible.builtin.assert:
+        that:
+          - t06_observer_allowed.stdout | trim == "yes"
+          - t06_platform_denied.rc == 1
+          - t06_platform_denied.stdout | trim == "no"

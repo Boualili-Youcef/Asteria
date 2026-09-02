@@ -1,0 +1,302 @@
+---
+- name: Enrôler les agents SSH, Kubernetes et PostgreSQL dans Teleport
+  hosts: teleport_agents
+  become: true
+  gather_facts: true
+  serial: 1
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    t06_pki_dir: "{{ lookup('ansible.builtin.env', 'ASTERIA_T06_PKI_DIR') }}"
+    t06_join_token_file: >-
+      {{ lookup('ansible.builtin.env', 'ASTERIA_T06_JOIN_TOKEN_FILE') }}
+    t06_ca_pin: "{{ lookup('ansible.builtin.env', 'ASTERIA_T06_CA_PIN') }}"
+    teleport_archive_name: >-
+      teleport-v{{ teleport_version }}-linux-amd64-bin.tar.gz
+    teleport_download_dir: /opt/asteria/teleport/downloads
+    teleport_install_dir: "/opt/asteria/teleport/{{ teleport_version }}"
+    teleport_proxy_address: >-
+      {{ teleport_proxy_hostname }}:{{ teleport_proxy_port }}
+    t06_is_kube_agent: "{{ inventory_hostname in groups['teleport_kube_agents'] }}"
+    t06_is_db_agent: "{{ inventory_hostname in groups['teleport_db_agents'] }}"
+
+  pre_tasks:
+    - name: Vérifier le système et les entrées de confiance
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.distribution == "Ubuntu"
+          - ansible_facts.architecture == "x86_64"
+          - t06_pki_dir | length > 1
+          - t06_pki_dir is match('^/')
+          - lookup('ansible.builtin.file', t06_pki_dir + '/ca.crt') | length > 0
+          - t06_ca_pin is match('^sha256:[0-9a-f]+$')
+        fail_msg: PKI ou empreinte du cluster Teleport T06 absente.
+
+    - name: Détecter une identité Teleport déjà enrôlée
+      ansible.builtin.stat:
+        path: /var/lib/teleport/host_uuid
+      register: t06_host_identity
+
+    - name: Vérifier si l'agent est déjà durablement actif
+      ansible.builtin.command:
+        argv: [systemctl, is-active, teleport]
+      register: t06_agent_pre_active
+      changed_when: false
+      failed_when: false
+
+    - name: Exiger un token éphémère seulement au premier enrôlement
+      ansible.builtin.assert:
+        that:
+          - t06_join_token_file | length > 1
+          - t06_join_token_file is match('^/')
+          - lookup('ansible.builtin.file', t06_join_token_file) | trim | length >= 16
+        fail_msg: >-
+          Un token éphémère hors Git est requis pour le premier enrôlement.
+      when: >-
+        not t06_host_identity.stat.exists or
+        t06_agent_pre_active.stdout | trim != "active"
+      no_log: true
+
+  tasks:
+    - name: Installer les prérequis des agents
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Créer les répertoires Teleport des agents
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "{{ item.mode }}"
+      loop:
+        - {path: /opt/asteria/teleport, mode: "0755"}
+        - {path: "{{ teleport_download_dir }}", mode: "0755"}
+        - {path: "{{ teleport_install_dir }}", mode: "0755"}
+        - {path: /var/lib/teleport, mode: "0700"}
+
+    - name: Télécharger la somme officielle Teleport
+      ansible.builtin.get_url:
+        url: >-
+          https://cdn.teleport.dev/{{ teleport_archive_name }}.sha256
+        dest: "{{ teleport_download_dir }}/{{ teleport_archive_name }}.sha256"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Télécharger Teleport Community versionné
+      ansible.builtin.get_url:
+        url: "https://cdn.teleport.dev/{{ teleport_archive_name }}"
+        dest: "{{ teleport_download_dir }}/{{ teleport_archive_name }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Vérifier la somme officielle de l'archive
+      ansible.builtin.command:
+        argv:
+          - sha256sum
+          - --check
+          - "{{ teleport_archive_name }}.sha256"
+        chdir: "{{ teleport_download_dir }}"
+      changed_when: false
+
+    - name: Extraire Teleport dans son répertoire versionné
+      ansible.builtin.unarchive:
+        src: "{{ teleport_download_dir }}/{{ teleport_archive_name }}"
+        dest: "{{ teleport_install_dir }}"
+        remote_src: true
+        creates: "{{ teleport_install_dir }}/teleport/teleport"
+        owner: root
+        group: root
+
+    - name: Publier le binaire agent
+      ansible.builtin.file:
+        src: "{{ teleport_install_dir }}/teleport/teleport"
+        dest: /usr/local/bin/teleport
+        state: link
+        force: true
+
+    - name: Installer la CA privée du proxy
+      ansible.builtin.copy:
+        dest: /usr/local/share/ca-certificates/asteria-t06-ca.crt
+        content: "{{ lookup('ansible.builtin.file', t06_pki_dir + '/ca.crt') }}\n"
+        owner: root
+        group: root
+        mode: "0644"
+      register: t06_ca_cert
+
+    - name: Actualiser le magasin CA
+      ansible.builtin.command: update-ca-certificates
+      when: t06_ca_cert.changed
+      changed_when: true
+
+    - name: Résoudre le proxy privé
+      ansible.builtin.lineinfile:
+        path: /etc/hosts
+        regexp: >-
+          ^{{ asteria_source_bastion_ip | regex_escape }}\s+{{ teleport_proxy_hostname | regex_escape }}$
+        line: "{{ asteria_source_bastion_ip }} {{ teleport_proxy_hostname }}"
+        state: present
+
+    - name: Créer l'utilisateur observateur sans sudo
+      ansible.builtin.user:
+        name: asteria-auditor
+        comment: Asteria T06 Teleport observer
+        create_home: true
+        shell: /bin/bash
+        password_lock: true
+
+    - name: Installer le token éphémère du premier enrôlement
+      ansible.builtin.copy:
+        dest: /var/lib/teleport/join.token
+        content: "{{ lookup('ansible.builtin.file', t06_join_token_file) | trim }}\n"
+        owner: root
+        group: root
+        mode: "0600"
+      when: >-
+        not t06_host_identity.stat.exists or
+        t06_agent_pre_active.stdout | trim != "active"
+      no_log: true
+
+    - name: Configurer l'agent Teleport
+      ansible.builtin.copy:
+        dest: /etc/teleport.yaml
+        owner: root
+        group: root
+        mode: "0600"
+        content: |
+          version: v3
+          teleport:
+            nodename: {{ inventory_hostname }}
+            data_dir: /var/lib/teleport
+            proxy_server: {{ teleport_proxy_address }}
+            ca_pin: {{ t06_ca_pin }}
+            join_params:
+              token_name: /var/lib/teleport/join.token
+              method: token
+            log:
+              output: stderr
+              severity: INFO
+          auth_service:
+            enabled: false
+          proxy_service:
+            enabled: false
+          ssh_service:
+            enabled: true
+            labels:
+              access: teleport
+              environment: {{ asteria_environment }}
+              role: {{ asteria_role }}
+          kubernetes_service:
+            enabled: {{ 'true' if t06_is_kube_agent else 'false' }}
+          {% if t06_is_kube_agent %}
+            kubeconfig_file: /etc/rancher/k3s/k3s.yaml
+            labels:
+              environment: source
+          {% endif %}
+          db_service:
+            enabled: {{ 'true' if t06_is_db_agent else 'false' }}
+          {% if t06_is_db_agent %}
+            databases:
+              - name: asteria-postgres
+                protocol: postgres
+                uri: 127.0.0.1:5432
+                static_labels:
+                  environment: source
+          {% endif %}
+      register: t06_agent_config
+
+    - name: Valider la syntaxe de la configuration agent
+      ansible.builtin.command:
+        argv:
+          - /usr/local/bin/teleport
+          - configure
+          - --test=/etc/teleport.yaml
+      changed_when: false
+
+    - name: Installer l'unité systemd de l'agent
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/teleport.service
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [Unit]
+          Description=Asteria T06 Teleport Community agent
+          Wants=network-online.target
+          After=network-online.target
+
+          [Service]
+          Type=simple
+          ExecStart=/usr/local/bin/teleport start --config=/etc/teleport.yaml --pid-file=/run/teleport.pid
+          Restart=on-failure
+          RestartSec=5s
+          LimitNOFILE=4096
+          MemoryMax={{ teleport_agent_memory_max_mb }}M
+          PrivateTmp=true
+          ProtectSystem=full
+
+          [Install]
+          WantedBy=multi-user.target
+      register: t06_agent_unit
+
+    - name: Démarrer ou redémarrer l'agent
+      ansible.builtin.systemd_service:
+        name: teleport
+        enabled: true
+        state: >-
+          {{ 'restarted' if (t06_agent_config.changed or
+             t06_agent_unit.changed) else 'started' }}
+        daemon_reload: true
+
+    - name: Attendre l'enrôlement de l'agent
+      ansible.builtin.command:
+        argv: [systemctl, is-active, teleport]
+      register: t06_agent_active
+      changed_when: false
+      retries: 12
+      delay: 5
+      until: t06_agent_active.stdout | trim == "active"
+
+    - name: Laisser l'agent franchir sa fenêtre de redémarrage
+      ansible.builtin.pause:
+        seconds: 5
+
+    - name: Vérifier que l'agent reste actif après stabilisation
+      ansible.builtin.command:
+        argv: [systemctl, is-active, teleport]
+      register: t06_agent_stable
+      changed_when: false
+      retries: 3
+      delay: 5
+      until: t06_agent_stable.stdout | trim == "active"
+
+    - name: Retirer le token après création de l'identité hôte
+      ansible.builtin.file:
+        path: /var/lib/teleport/join.token
+        state: absent
+
+    - name: Confirmer que le break-glass SSH reste actif
+      ansible.builtin.command:
+        argv: [systemctl, is-active, ssh]
+      changed_when: false
+
+    - name: Mesurer la marge mémoire de l'agent
+      ansible.builtin.command:
+        argv: [awk, "/MemAvailable:/ {print int($2/1024)}", /proc/meminfo]
+      register: t06_agent_memory
+      changed_when: false
+
+    - name: Refuser une dégradation sous le seuil de sécurité
+      ansible.builtin.assert:
+        that:
+          - t06_agent_memory.stdout | int >= teleport_min_available_memory_mb
+        fail_msg: >-
+          STOP T06: l'agent laisse moins de
+          {{ teleport_min_available_memory_mb }} Mio disponibles.

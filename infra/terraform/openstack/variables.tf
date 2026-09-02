@@ -68,3 +68,17 @@ variable "ssh_user" {
   type        = string
   default     = "ubuntu"
 }
+
+variable "teleport_staging_agent_cidrs" {
+  description = "Adresses /32 des agents Teleport du projet staging autorises vers le proxy T06."
+  type        = set(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.teleport_staging_agent_cidrs :
+      can(cidrnetmask(cidr)) && endswith(cidr, "/32")
+    ])
+    error_message = "Chaque agent staging Teleport doit etre declare par un CIDR IPv4 /32."
+  }
+}

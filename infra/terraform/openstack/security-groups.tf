@@ -59,6 +59,50 @@ resource "openstack_networking_secgroup_rule_v2" "bastion_ssh" {
   security_group_id = openstack_networking_secgroup_v2.bastion.id
 }
 
+resource "openstack_networking_secgroup_rule_v2" "bastion_teleport_from_admin" {
+  for_each = var.admin_cidrs
+
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 3080
+  port_range_max    = 3080
+  remote_ip_prefix  = each.value
+  security_group_id = openstack_networking_secgroup_v2.bastion.id
+}
+
+locals {
+  teleport_source_agent_security_groups = {
+    control_plane = openstack_networking_secgroup_v2.control_plane.id
+    postgres      = openstack_networking_secgroup_v2.postgres.id
+    workers       = openstack_networking_secgroup_v2.workers.id
+  }
+}
+
+resource "openstack_networking_secgroup_rule_v2" "bastion_teleport_from_source_agents" {
+  for_each = local.teleport_source_agent_security_groups
+
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 3080
+  port_range_max    = 3080
+  remote_group_id   = each.value
+  security_group_id = openstack_networking_secgroup_v2.bastion.id
+}
+
+resource "openstack_networking_secgroup_rule_v2" "bastion_teleport_from_staging_agents" {
+  for_each = var.teleport_staging_agent_cidrs
+
+  direction         = "ingress"
+  ethertype         = "IPv4"
+  protocol          = "tcp"
+  port_range_min    = 3080
+  port_range_max    = 3080
+  remote_ip_prefix  = each.value
+  security_group_id = openstack_networking_secgroup_v2.bastion.id
+}
+
 resource "openstack_networking_secgroup_rule_v2" "control_plane_ssh_from_bastion" {
   direction         = "ingress"
   ethertype         = "IPv4"

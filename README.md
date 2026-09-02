@@ -32,13 +32,22 @@ L'audit final se trouve dans :
 - `docs/phase-1-as-is/08-as-is-known-issues.md` ;
 - `docs/evidence/phase-1/M16-as-is-audit-complete.md`.
 
-La phase 2 TO-BE est ouverte depuis le 30 août 2026. T00 initialise sa charte,
-sa traçabilité et deux propositions d'architecture sans modifier le runtime.
-La prochaine mission est T01 : définir les SLO, RTO/RPO et le modèle de menace.
+La phase 2 TO-BE est ouverte depuis le 30 août 2026. T00 à T06 sont terminées :
+charte, exigences/SLO/RTO/RPO, inventaire des deux projets OpenStack, treize ADR
+approuvées, temps synchronisé, state protégé, backups initiaux et break-glass
+validé, puis staging CAP-05 séparé avec deux VM, fondations idempotentes et
+pare-feu hôte compensatoire. T06 fournit GitHub SSO, WebAuthn par session, RBAC,
+certificats courts, accès SSH/Kubernetes/PostgreSQL audités et break-glass
+conservé. La prochaine mission autorisée est T07.
 
-Documents d'entrée de phase 2 :
+Parcours de lecture recommandé :
 
-- `docs/phase-2-to-be/00-transformation-charter.md` ;
-- `docs/phase-2-to-be/01-target-architecture-proposal.md` ;
-- `docs/phase-2-to-be/02-as-is-to-to-be-traceability.md` ;
-- `docs/evidence/phase-2/T00-phase-2-initialized.md`.
+1. `PHASE_2_BACKLOG.md` pour l'état et l'ordre des missions ;
+2. `docs/phase-2-to-be/09-target-architecture-decisions.md` pour la cible ;
+3. `docs/phase-2-to-be/12-t06-zero-trust-access-runbook.md`, puis la preuve
+   `docs/evidence/phase-2/T06-zero-trust-access-ready.md` ;
+4. les ADR seulement pour comprendre un arbitrage ;
+5. `docs/evidence/phase-2/` seulement pour auditer les résultats.
+
+Les propositions historiques et matrices détaillées restent utiles comme
+références, mais ne font pas partie du parcours de lecture quotidien.

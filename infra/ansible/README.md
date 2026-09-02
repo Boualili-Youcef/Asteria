@@ -16,9 +16,18 @@ passe, token ou kubeconfig n'est copié automatiquement sur le bastion.
 - `ansible.cfg` : paramètres SSH communs et inventaire par défaut ;
 - `inventory/terraform_inventory.sh` : inventaire dynamique construit depuis
   l'output Terraform `compute_instances` ;
+- `inventory/staging_terraform_inventory.sh` : inventaire T05 séparé, avec
+  ProxyJump et fichier `known_hosts` privé dédié au staging ;
+- `inventory/t06_terraform_inventory.sh` : vue combinée source/staging pour le
+  proxy et les six agents Teleport ;
 - `group_vars/all.yml` : versions contrôlées des outils téléchargés ;
 - `playbooks/m07-bastion.yml` : configuration idempotente du bastion et du
-  chemin SSH des VMs internes.
+  chemin SSH des VMs internes ;
+- `playbooks/t05-staging-foundations.yml` : NTP, SSH et UFW idempotents sur les
+  deux VM du projet secondaire ;
+- `playbooks/t06-*.yml` : proxy Teleport, agents, RBAC Kubernetes et mTLS
+  PostgreSQL ; le runbook et le backup T06 portent les commandes et limites
+  détaillées.
 
 ## Prérequis locaux
 
@@ -395,3 +404,26 @@ curl -H 'Host: grafana.asteria.local' \
 
 Un second passage doit donner `changed=0`. Les limites complètes sont
 documentées dans `monitoring/current-state/README.md`.
+
+## T04 — Temps et backups de sécurité avant migration
+
+`t04-ntp.yml` configure le service natif `systemd-timesyncd` sur les cinq VM,
+refuse un démon NTP concurrent et attend `NTPSynchronized=yes`. Les sources du
+lab sont déclarées dans `group_vars/all.yml` : le provider network utilise la
+source institutionnelle `ntp.univ-lille.fr`, les pools publics étant injoignables
+en UDP/123 lors de T04. Une entreprise doit la remplacer par au moins deux
+sources internes approuvées, authentifiées et supervisées.
+
+`t04-safety-backups.yml` produit sans bascule :
+
+- un nouveau dump PostgreSQL via `/usr/local/sbin/asteria-postgres-backup` ;
+- une copie SQLite K3s cohérente, le token serveur indispensable et un export
+  Kubernetes sans contenu de Secrets ;
+- deux archives rapatriées vers `ASTERIA_T04_BACKUP_ROOT`, hors Git, avec modes
+  restreints et checksums.
+
+Les archives contiennent des données RESTRICTED. Le répertoire doit être
+absolu, privé et extérieur au dépôt. Les commandes complètes, gates, rollback
+et tests négatifs sont dans
+`docs/phase-2-to-be/10-t04-foundations-runbook.md`. Une restauration n'est pas
+exécutée par T04 ; elle est répétée sur cible isolée en T15.

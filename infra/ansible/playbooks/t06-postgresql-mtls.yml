@@ -1,0 +1,261 @@
+---
+- name: Générer les certificats PostgreSQL depuis la CA Teleport
+  hosts: teleport_db_agents
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    t06_bastion_host: "{{ groups['bastion'][0] }}"
+    t06_db_cert_prefix: /var/lib/teleport/t06-db-pki/asteria-postgres
+
+  tasks:
+    - name: Créer le répertoire de génération protégé sur le bastion
+      ansible.builtin.file:
+        path: /var/lib/teleport/t06-db-pki
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+      delegate_to: "{{ t06_bastion_host }}"
+
+    - name: Vérifier si le certificat DB existe déjà
+      ansible.builtin.stat:
+        path: "{{ t06_db_cert_prefix }}.crt"
+      register: t06_db_cert_stat
+      delegate_to: "{{ t06_bastion_host }}"
+
+    - name: Signer le certificat PostgreSQL avec la CA Teleport
+      ansible.builtin.command:
+        argv:
+          - tctl
+          - -c
+          - /etc/teleport.yaml
+          - auth
+          - sign
+          - --format=db
+          - --host=localhost,127.0.0.1,{{ inventory_hostname }},{{ ansible_host }}
+          - --out={{ t06_db_cert_prefix }}
+          - --ttl=720h
+      delegate_to: "{{ t06_bastion_host }}"
+      when: not t06_db_cert_stat.stat.exists
+      changed_when: true
+      no_log: true
+
+    - name: Lire les éléments PKI sans les journaliser
+      ansible.builtin.slurp:
+        src: "{{ t06_db_cert_prefix }}.{{ item }}"
+      loop: [cas, crt, key]
+      register: t06_db_pki_material
+      delegate_to: "{{ t06_bastion_host }}"
+      no_log: true
+
+    - name: Mémoriser les éléments PKI par extension
+      ansible.builtin.set_fact:
+        t06_db_ca: "{{ t06_db_pki_material.results[0].content | b64decode }}"
+        t06_db_cert: "{{ t06_db_pki_material.results[1].content | b64decode }}"
+        t06_db_key: "{{ t06_db_pki_material.results[2].content | b64decode }}"
+      no_log: true
+
+- name: Activer mTLS PostgreSQL uniquement pour l'administration Teleport locale
+  hosts: teleport_db_agents
+  become: true
+  gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+  vars:
+    t06_pg_config_dir: "/etc/postgresql/{{ postgresql_major_version }}/main"
+    t06_pg_tls_dir: >-
+      /etc/postgresql/{{ postgresql_major_version }}/main/t06-teleport-pki
+    t06_pg_backup_dir: /var/backups/asteria-t06-postgresql/pre-change
+
+  tasks:
+    - name: Créer le backup de configuration avant T06
+      ansible.builtin.file:
+        path: "{{ t06_pg_backup_dir }}"
+        state: directory
+        owner: root
+        group: postgres
+        mode: "0750"
+
+    - name: Sauvegarder la configuration M08 avant modification
+      ansible.builtin.copy:
+        src: "{{ item }}"
+        dest: "{{ t06_pg_backup_dir }}/{{ item | basename }}"
+        remote_src: true
+        owner: root
+        group: postgres
+        mode: "0640"
+        force: false
+      loop:
+        - "{{ t06_pg_config_dir }}/pg_hba_asteria.conf"
+        - "{{ t06_pg_config_dir }}/conf.d/99-asteria.conf"
+
+    - name: Sauvegarder les rôles PostgreSQL avant modification
+      ansible.builtin.shell: |
+        set -o pipefail
+        runuser -u postgres -- pg_dumpall --globals-only \
+          > {{ t06_pg_backup_dir }}/globals-before-t06.sql
+        chown root:postgres {{ t06_pg_backup_dir }}/globals-before-t06.sql
+        chmod 0640 {{ t06_pg_backup_dir }}/globals-before-t06.sql
+      args:
+        executable: /bin/bash
+        creates: "{{ t06_pg_backup_dir }}/globals-before-t06.sql"
+      no_log: true
+
+    - name: Créer le répertoire PKI PostgreSQL
+      ansible.builtin.file:
+        path: "{{ t06_pg_tls_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0700"
+
+    - name: Installer les certificats de confiance PostgreSQL
+      ansible.builtin.copy:
+        dest: "{{ t06_pg_tls_dir }}/{{ item.name }}"
+        content: "{{ item.content }}"
+        owner: postgres
+        group: postgres
+        mode: "{{ item.mode }}"
+      loop:
+        - {name: server.cas, content: "{{ t06_db_ca }}", mode: "0644"}
+        - {name: server.crt, content: "{{ t06_db_cert }}", mode: "0644"}
+        - {name: server.key, content: "{{ t06_db_key }}", mode: "0600"}
+      loop_control:
+        label: "{{ item.name }}"
+      no_log: true
+      register: t06_db_pki_copy
+
+    - name: Configurer TLS PostgreSQL pour le chemin Teleport
+      ansible.builtin.copy:
+        dest: "{{ t06_pg_config_dir }}/conf.d/98-t06-teleport-tls.conf"
+        owner: postgres
+        group: postgres
+        mode: "0640"
+        content: |
+          # Géré par Ansible - T06 Asteria
+          ssl = on
+          ssl_cert_file = '{{ t06_pg_tls_dir }}/server.crt'
+          ssl_key_file = '{{ t06_pg_tls_dir }}/server.key'
+          ssl_ca_file = '{{ t06_pg_tls_dir }}/server.cas'
+      register: t06_db_tls_config
+
+    - name: Autoriser le seul compte Teleport via certificat sur loopback
+      ansible.builtin.blockinfile:
+        path: "{{ t06_pg_config_dir }}/pg_hba_asteria.conf"
+        insertafter: "^# Géré par Ansible - M08 Asteria$"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK T06 TELEPORT"
+        block: |
+          # mTLS d'administration local ; les flux applicatifs restent gérés par M08/T10.
+          hostssl all asteria_readonly 127.0.0.1/32 cert
+      register: t06_db_hba
+
+    - name: Créer le rôle PostgreSQL de lecture sans mot de passe
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --set=ON_ERROR_STOP=1
+          - --command=DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'asteria_readonly') THEN CREATE ROLE asteria_readonly LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; END IF; END $$;
+      become_user: postgres
+      register: t06_db_role
+      changed_when: false
+
+    - name: Accorder la lecture de données au rôle T06
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --set=ON_ERROR_STOP=1
+          - --command=GRANT pg_read_all_data TO asteria_readonly;
+      become_user: postgres
+      changed_when: false
+
+    - name: Valider le chargement de la configuration PostgreSQL
+      ansible.builtin.command:
+        argv:
+          - "/usr/lib/postgresql/{{ postgresql_major_version }}/bin/postgres"
+          - -C
+          - ssl
+          - --config-file={{ t06_pg_config_dir }}/postgresql.conf
+      become_user: postgres
+      register: t06_pg_ssl_setting
+      changed_when: false
+
+    - name: Redémarrer PostgreSQL si TLS ou HBA a changé
+      when: >-
+        t06_db_tls_config.changed or t06_db_hba.changed or
+        t06_db_pki_copy.changed
+      block:
+        - name: Redémarrer PostgreSQL
+          ansible.builtin.systemd_service:
+            name: postgresql
+            state: restarted
+
+        - name: Attendre PostgreSQL sur loopback
+          ansible.builtin.wait_for:
+            host: 127.0.0.1
+            port: 5432
+            timeout: 45
+
+        - name: Vérifier la négociation TLS PostgreSQL
+          ansible.builtin.shell: |
+            set -o pipefail
+            printf '' | openssl s_client -starttls postgres \
+              -connect 127.0.0.1:5432 \
+              2>&1 | grep -Eq 'New, TLSv1\.[23], Cipher is'
+          args:
+            executable: /bin/bash
+          changed_when: false
+      rescue:
+        - name: Restaurer le HBA M08 après échec
+          ansible.builtin.copy:
+            src: "{{ t06_pg_backup_dir }}/pg_hba_asteria.conf"
+            dest: "{{ t06_pg_config_dir }}/pg_hba_asteria.conf"
+            remote_src: true
+            owner: postgres
+            group: postgres
+            mode: "0640"
+
+        - name: Retirer la configuration TLS T06 après échec
+          ansible.builtin.file:
+            path: "{{ t06_pg_config_dir }}/conf.d/98-t06-teleport-tls.conf"
+            state: absent
+
+        - name: Redémarrer PostgreSQL sur la configuration restaurée
+          ansible.builtin.systemd_service:
+            name: postgresql
+            state: restarted
+
+        - name: Signaler le rollback PostgreSQL
+          ansible.builtin.fail:
+            msg: >-
+              T06 PostgreSQL a échoué ; la configuration M08 a été restaurée.
+
+    - name: Confirmer PostgreSQL et le break-glass SSH actifs
+      ansible.builtin.command:
+        argv: [systemctl, is-active, "{{ item }}"]
+      loop: [postgresql, ssh]
+      changed_when: false
+
+    - name: Confirmer que le compte T06 n'est pas superuser
+      ansible.builtin.command:
+        argv:
+          - psql
+          - --dbname=postgres
+          - --no-psqlrc
+          - --tuples-only
+          - --no-align
+          - --command=SELECT rolsuper FROM pg_roles WHERE rolname = 'asteria_readonly';
+      become_user: postgres
+      register: t06_db_role_superuser
+      changed_when: false
+
+    - name: Refuser un compte PostgreSQL trop privilégié
+      ansible.builtin.assert:
+        that:
+          - t06_pg_ssl_setting.stdout | trim == "on"
+          - t06_db_role_superuser.stdout | trim == "f"
