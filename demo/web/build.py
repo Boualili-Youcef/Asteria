@@ -18,6 +18,15 @@ if output == ROOT or output in ROOT.parents:
 data = json.loads((ROOT / 'demo/evidence/presentation.json').read_text())
 if data.get('mode') != 'dated-evidence-not-live':
     raise SystemExit('A public evidence mode must be explicit')
+baseline_path = ROOT / 'demo/evidence/scan-baseline-20261014.json'
+if baseline_path.is_file():
+    baseline = json.loads(baseline_path.read_text())
+    data['baseline_scan'] = {key: baseline[key] for key in
+                            ['high_findings', 'critical_findings', 'run_id', 'promotion']}
+    data['steps'][1].update(status='SCAN RÉEL · BASE HISTORIQUE REFUSÉE', short_status='BLOQUÉ',
+        description='Le scan CI de la base Debian historique a bloqué la candidate : 88 signalements HIGH et 3 CRITICAL. Aucun artefact de promotion réussi n’a été émis. La variante Demo minimale doit passer le même contrôle avant acceptation.',
+        command='Trivy image --severity HIGH,CRITICAL --exit-code 1',
+        proof='https://github.com/Boualili-Youcef/Asteria/actions/runs/' + baseline['run_id'])
 release_path = ROOT / 'demo/evidence/orders-release.json'
 if release_path.is_file():
     release = json.loads(release_path.read_text())

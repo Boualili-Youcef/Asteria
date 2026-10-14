@@ -57,6 +57,7 @@ sum(asteria_notifications_processed_total)</pre><p>À interroger dans le Prometh
     </section>
     <section class="panel" id="reliability" aria-labelledby="reliability-title" hidden>
       <div class="section-heading"><div><div class="eyebrow">04 / ÉCHOUER SOUS CONTRÔLE</div><h2 id="reliability-title">Le rollback doit<br>se vérifier aussi.</h2></div><p>Le scénario préparé change uniquement une readiness probe dans le namespace de démo. Sa validation réelle sur K3s reste un critère distinct.</p></div>
+      <p class="mode-notice" id="scan-proof" hidden></p>
       <div class="recovery"><span>Version saine</span><span>→</span><span>Probe invalide</span><span>→</span><span>Échec détecté</span><span>→</span><span>Rollback + /ready</span></div>
       <div class="two-columns"><article><span class="badge">TESTS LOCAUX</span><h3>Garde-fous testés</h3><p>Mauvais cluster, dépôt inattendu et digest invalide sont refusés. Les tests simulent une erreur Helm ou de probe et exigent la vérification de l'image précédente. Ce sont des tests du script, pas une panne K3s observée.</p></article><article class="warning"><span class="badge">NON VALIDÉ SUR K3S</span><h3>La preuve live reste à produire</h3><p>Un déploiement et son rollback nécessitent un périmètre autorisé, des données synthétiques isolées et des droits bornés. Aucun succès n'est présumé. Le lab ne revendique ni HA, ni DR, ni exploitation de production.</p><a class="text-link" data-repo="docs/demo-v1/LIMITATIONS.md">Lire les limites ↗</a></article></div>
     </section>

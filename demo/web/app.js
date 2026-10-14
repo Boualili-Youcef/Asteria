@@ -20,6 +20,11 @@ fetch('evidence.json').then(response => {
   document.getElementById('source-state').textContent = data.source_state;
   document.getElementById('observed-at').textContent = data.observed_at;
   const list = document.getElementById('steps');
+  if (data.baseline_scan) {
+    const proof = document.getElementById('scan-proof');
+    proof.hidden = false;
+    proof.textContent = `Refus réellement observé en CI : la candidate utilisant la base historique Debian a été bloquée sur ${data.baseline_scan.high_findings} signalements HIGH et ${data.baseline_scan.critical_findings} CRITICAL. Cette preuve de scan est distincte du rollback K3s encore non validé.`;
+  }
   if (data.functional_replay) {
     const replay = data.functional_replay;
     const descriptions = {

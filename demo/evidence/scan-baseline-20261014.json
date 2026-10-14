@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "environment": "github-actions",
+  "run_id": "38602997000",
+  "date": "2026-10-14T17:14:38Z",
+  "candidate_digest": "sha256:7d0c3f88c75b84803ce9e20fb0a1709b64d315ae5d10cff01aafc5df3d6658da",
+  "scanner": "Trivy 0.76.0",
+  "scanner_digest": "sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222",
+  "baseline": "historical Debian runtime",
+  "high_findings": 88,
+  "critical_findings": 3,
+  "findings_without_fixed_version": 44,
+  "python_high_or_critical_findings": 0,
+  "promotion": "blocked",
+  "scope": "findings per package and CVE, not distinct vulnerabilities"
+}

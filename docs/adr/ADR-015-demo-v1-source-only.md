@@ -38,6 +38,14 @@ répétition avant migration. Demo v1 accepte une promotion manuelle bornée et
 ne clôture aucun constat global. Un runner distant administrateur, un nouveau
 cluster cloud et une installation Argo CD sont écartés pour cette extension.
 
+Le scan CI de la base Debian historique a ensuite bloqué 88 signalements HIGH
+et 3 CRITICAL. Une variante Docker Demo basée sur Python Alpine, figée par
+digest, est retenue à condition de passer scan, smoke et parcours PostgreSQL/
+Redis. Les requirements et sources applicatives restent identiques. Une mise
+à jour Debian seule n'est pas considérée suffisante à ce stade : 44
+signalements n'annoncent pas de version corrigée dans le rapport. L'image
+historique reste conservée, sans exception silencieuse dans le gate Demo.
+
 ## Conséquences sur les dépendances
 
 T08–T18 restent à faire. Leur exécution sur l'ancien staging est indisponible.
