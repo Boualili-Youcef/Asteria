@@ -7,6 +7,8 @@
 *.key
 clouds.yaml
 secure.yaml
+*openrc*
+*OpenRC*
 
 # Terraform
 .terraform/

@@ -22,6 +22,13 @@ données ne peut être exécuté sans examen explicite de son périmètre.
 
 ## Vue d'ensemble
 
+Extension Demo v1 ouverte le 14 octobre 2026 : voir
+[ADR-015](docs/adr/ADR-015-demo-v1-source-only.md) et
+[audit D0](docs/demo-v1/00-audit-and-constraints.md). Le second compte n'est plus
+accessible. Les preuves T05–T07 restent historiques ; les dépendances de
+T08–T18 doivent être requalifiées avant reprise. Cette extension ne termine
+aucune mission T08–T18 et n'autorise aucune mutation cloud implicite.
+
 | Mission | Intitulé | Statut | Dépend de |
 |---|---|---|---|
 | T00 | Initialiser la transformation TO-BE | Terminée | M16 |
