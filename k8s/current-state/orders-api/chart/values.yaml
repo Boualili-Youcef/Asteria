@@ -3,7 +3,15 @@ replicaCount: 1
 image:
   repository: docker.io/asteria/orders-api
   tag: m13
+  digest: ""
   pullPolicy: IfNotPresent
+
+deployment:
+  commit: ""
+  run: ""
+  readinessPath: /ready
+
+serviceAccountName: ""
 
 runtime:
   configMapName: orders-runtime

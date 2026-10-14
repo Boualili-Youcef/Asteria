@@ -1,0 +1,125 @@
+name: Orders demo release
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ['apps/orders-api/**', 'demo/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
+  push:
+    branches: [demo/recruiter-v1]
+    paths: ['apps/orders-api/**', 'demo/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: orders-demo-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.14.6'
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
+        with:
+          version: v3.19.0
+      - name: Install pinned application dependencies
+        run: python -m pip install -r apps/orders-api/requirements.txt -r apps/orders-api/requirements-dev.txt
+      - name: Test Orders and operator guards
+        run: |
+          python -m pip check
+          PYTHONPATH=apps/orders-api python -m pytest apps/orders-api/tests --junitxml=orders-junit.xml
+          python -m unittest discover -s demo/tests -v
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: orders-tests-${{ github.run_id }}
+          path: orders-junit.xml
+          retention-days: 14
+
+  release:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Build once and publish immutable candidate
+        id: image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: apps/orders-api
+          push: true
+          tags: ghcr.io/boualili-youcef/asteria/orders-api:demo-${{ github.sha }}
+          provenance: mode=max
+          sbom: true
+          labels: |
+            org.opencontainers.image.source=https://github.com/Boualili-Youcef/Asteria
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Scan the published candidate before allowing promotion
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          format: json
+          output: orders-scan.json
+          version: v0.65.0
+        env:
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      - name: Smoke test immutable image
+        env:
+          IMAGE: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
+        run: |
+          docker pull "$IMAGE"
+          test "$(docker image inspect --format '{{.Config.User}}' "$IMAGE")" = '10001:10001'
+          docker run --detach --name orders-smoke --publish 127.0.0.1:18080:8080 "$IMAGE"
+          trap 'docker rm --force orders-smoke >/dev/null' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/health; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:18080/health
+          curl --fail --silent http://127.0.0.1:18080/metrics | grep asteria_service_info
+          test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/ready)" = 503
+      - name: Record promotion artifact
+        env:
+          DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          Path('release.json').write_text(json.dumps({
+              'schema': 1, 'commit': os.environ['GITHUB_SHA'],
+              'image': 'ghcr.io/boualili-youcef/asteria/orders-api',
+              'digest': os.environ['DIGEST'], 'run_id': os.environ['GITHUB_RUN_ID']
+          }, indent=2) + '\n')
+          PY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: orders-release-${{ github.run_id }}
+          path: release.json
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: orders-scan-${{ github.run_id }}
+          path: orders-scan.json
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,12 @@
+# Separate release in a namespace provisioned and approved in advance.
+image:
+  repository: ghcr.io/boualili-youcef/asteria/orders-api
+  tag: ""
+  digest: ""  # supplied by the release artifact
+  pullPolicy: Always
+ingress:
+  enabled: false
+serviceAccountName: orders-demo
+runtime:
+  configMapName: orders-demo-runtime
+  secretName: orders-demo-postgres

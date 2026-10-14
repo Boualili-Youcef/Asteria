@@ -1,0 +1,100 @@
+# Proposed bootstrap, never applied by the promotion script.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: asteria-demo
+  labels:
+    asteria.io/purpose: demo-v1
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: v1.36
+---
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: demo-budget
+  namespace: asteria-demo
+spec:
+  hard:
+    pods: "8"
+    requests.cpu: 500m
+    requests.memory: 768Mi
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    persistentvolumeclaims: "0"
+    services.nodeports: "0"
+    services.loadbalancers: "0"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: demo-defaults
+  namespace: asteria-demo
+spec:
+  limits:
+    - type: Container
+      defaultRequest: {cpu: 20m, memory: 64Mi}
+      default: {cpu: 250m, memory: 256Mi}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: orders-demo
+  namespace: asteria-demo
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: demo-promoter
+  namespace: asteria-demo
+rules:
+  - apiGroups: [apps]
+    resources: [deployments, replicasets]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [""]
+    resources: [services, configmaps, secrets]
+    verbs: [get, list, watch, create, update, patch]
+  - apiGroups: [""]
+    resources: [pods, events]
+    verbs: [get, list, watch]
+  - apiGroups: [""]
+    resources: [pods/portforward]
+    verbs: [create]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: demo-promoter
+  namespace: asteria-demo
+subjects:
+  - kind: Group
+    name: asteria:demo-promoter
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: Role
+  name: demo-promoter
+  apiGroup: rbac.authorization.k8s.io
+---
+# Read-only identity check, limited to two known namespace objects.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: asteria-demo-identity-reader
+rules:
+  - apiGroups: [""]
+    resources: [namespaces]
+    resourceNames: [kube-system, asteria-demo]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: asteria-demo-identity-reader
+subjects:
+  - kind: Group
+    name: asteria:demo-promoter
+    apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: asteria-demo-identity-reader
+  apiGroup: rbac.authorization.k8s.io

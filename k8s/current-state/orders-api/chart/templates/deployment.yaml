@@ -12,9 +12,17 @@ spec:
       {{- include "orders-api.selectorLabels" . | nindent 6 }}
   template:
     metadata:
+      {{- if or .Values.deployment.commit .Values.deployment.run }}
+      annotations:
+        asteria.io/commit: {{ .Values.deployment.commit | quote }}
+        asteria.io/ci-run: {{ .Values.deployment.run | quote }}
+      {{- end }}
       labels:
         {{- include "orders-api.labels" . | nindent 8 }}
     spec:
+      {{- if .Values.serviceAccountName }}
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- end }}
       automountServiceAccountToken: false
       securityContext:
         runAsNonRoot: true
@@ -24,7 +32,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: orders-api
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          image: {{ include "orders-api.image" . | quote }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           envFrom:
             - configMapRef:
@@ -37,7 +45,7 @@ spec:
               protocol: TCP
           readinessProbe:
             httpGet:
-              path: /ready
+              path: {{ .Values.deployment.readinessPath | quote }}
               port: http
             initialDelaySeconds: 3
             periodSeconds: 5
