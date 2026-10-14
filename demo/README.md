@@ -19,9 +19,11 @@ démo ; ne jamais le réutiliser dans un namespace historique.
 
 La CI complète réussie est enregistrée dans `evidence/orders-release.json`,
 `evidence/ci-verification-20261014.json` et `evidence/ci-functional-20261014.json`.
-GHCR est privé : le credential opérateur essayé n'a pas permis le pull. Un
-accès de registre dédié en lecture ou une décision de publication de l'image
-doit précéder l'activation K3s ; aucun credential CI n'est copié dans le cluster.
+Le package GHCR est encore privé : le credential opérateur essayé n'a pas
+permis le pull. Le choix retenu pour le portfolio est de rendre public le seul
+package Orders ; son activation et son contrôle anonyme sont en attente, voir
+le [runbook](../docs/demo-v1/DEMO-5-MINUTES.md#accès-au-registre-pour-le-portfolio).
+Aucun credential CI n'est copié dans le cluster.
 
 Le site se construit avec une allowlist de quatre fichiers publics. Héberger
 uniquement le répertoire produit, jamais la racine du dépôt ou `.secrets`.

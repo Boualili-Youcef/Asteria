@@ -43,7 +43,7 @@ statique. Alternatives écartées : nouveau cluster cloud, runner administrateur
 Argo CD et Flutter pour cette première démonstration.
 
 Fichiers : nouveau périmètre `demo/`, `docs/demo-v1/`, workflow Orders Demo,
-ADR-015 et cette preuve ; options digest/traçabilité du chart existant et trois
+ADR-015 et cette preuve ; options digest/traçabilité du chart existant et quatre
 tests Orders. README et backlog signalent la nouvelle contrainte. Les preuves
 AS-IS/T00–T07 restent intactes. Les deux fichiers non suivis préexistants sont
 préservés et exclus des commits de livraison.
@@ -79,8 +79,10 @@ restauration Kubernetes réelle n'est revendiquée.
 
 ## Dettes et prochaine action autorisée
 
-La branche/CI et le site sont publiés dans le périmètre approuvé. Achever la
-validation CI, puis préparer et faire approuver le bootstrap synthétique avec
-son impact précis, après réinventaire source.
+La branche/CI et le site sont publiés dans le périmètre approuvé. La CI complète
+est validée. Le choix d'un package Orders public est documenté dans ADR-015 ;
+le réglage GitHub et la preuve de téléchargement anonyme restent en attente.
+Préparer et faire approuver le bootstrap synthétique avec son impact précis,
+après réinventaire source.
 La prochaine mission TO-BE reste T08 après requalification de ses dépendances.
 Demo v1 ne clôture pas T08–T18 et n'autorise pas leur exécution automatique.

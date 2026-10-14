@@ -32,6 +32,42 @@ Ctrl+C ; aucun nettoyage cloud n'est nécessaire.
 
 ## Mode live accompagné — préconditions obligatoires
 
+### Accès au registre pour le portfolio
+
+Choix retenu : téléchargement public de l'image Orders par digest, sans token
+de registre sur le poste ni dans le cluster. L'accès cloud demeure privé.
+Au dernier contrôle, le package est encore privé ; ce choix n'est pas une
+preuve de publication effective.
+
+Le propriétaire ouvre [le package Orders](https://github.com/users/Boualili-Youcef/packages/container/package/asteria%2Forders-api),
+puis **Package settings → Change visibility → Public**, et confirme le nom du
+package demandé par GitHub. Ce réglage concerne toutes ses versions, y compris
+les candidates refusées ; celles-ci restent exclues de toute promotion.
+GitHub indique que le retour en privé n'est pas possible, voir
+[la procédure officielle](https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility#configuring-visibility-of-packages-for-your-personal-account).
+
+Vérifier ensuite le digest retenu dans une configuration Docker temporaire
+vide, sans utiliser les identifiants du poste :
+
+```bash
+python3 - <<'PY'
+import json
+from pathlib import Path
+import subprocess
+import tempfile
+
+release = json.loads(Path('demo/evidence/orders-release.json').read_text())
+image = release['image'] + '@' + release['digest']
+with tempfile.TemporaryDirectory(prefix='asteria-anonymous-pull-') as config:
+    subprocess.run(['docker', '--config', config, 'pull', image], check=True)
+print('Téléchargement anonyme du digest validé : réussi')
+PY
+```
+
+Ce contrôle télécharge seulement l'image sur le poste. Il ne prouve ni l'accès
+Internet des workers ni un déploiement K3s ; ces vérifications restent requises
+sur le canal privé avant le bootstrap autorisé.
+
 Le recruteur n'obtient aucun accès privilégié. Avant toute activation, vérifier
 le projet source, les ressources réelles, le namespace isolé, les backups et
 l'autorisation du périmètre. Préparer hors Git un contexte opérateur borné,

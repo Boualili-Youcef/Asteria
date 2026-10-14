@@ -20,10 +20,17 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | CI complète | run 38614847670, commit 640fd0396d5669aec5fe028fe639d503a453ddc1 | PASS : tests, build unique, scan 0 HIGH/CRITICAL, smoke et parcours métier réel sur le digest produit |
 | Parcours métier de l'image CI | rapport orders-functional-38614847670 | PASS en 10,445 s ; Redis suspendu avec réseau conservé, ready 503/health 200, reprise, seconde archive et nettoyage |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
-| Site statique public | workflow Pages 38600626583, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; replay Docker présent ; contrôle visuel navigateur indisponible |
+| Site statique public | workflow Pages 38616314755, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; CI finale 38614847670 et replay Docker de 10,445 s publiés ; contrôle visuel navigateur indisponible |
 | Santé source finale | lecture SSH, 17:57 UTC | cinq services VM actifs et NTP=yes ; PostgreSQL prêt ; trois APIs /ready=200 ; Prometheus prêt, huit targets UP, compteurs Orders/Worker à 1 |
 
 ## Commandes exécutées et reproduction
+
+Accès au registre : choix public retenu pour le seul package Orders dans
+ADR-015 ; modification GitHub encore en attente. Le contrôle du digest final
+avec `docker --config <répertoire temporaire vide> pull <image@digest>` retourne
+1, accès refusé, le 14 octobre 2026. Aucun credential n'a été utilisé pour ce
+contrôle. Le runbook prépare la répétition du test après changement de
+visibilité. La réussite de la CI authentifiée ne prouve pas un pull anonyme.
 
 ```bash
 git status --short

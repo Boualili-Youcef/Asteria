@@ -48,6 +48,23 @@ historique reste conservée, sans exception silencieuse dans le gate Demo.
 
 ## Conséquences sur les dépendances
 
+### Accès à l'image de démonstration
+
+Pour la présentation portfolio, retenir un package Orders public dans GHCR :
+le code est public et les Dockerfiles ne copient que `requirements.txt` et
+`app/` depuis le contexte applicatif. Aucun credential de registre n'est alors
+nécessaire à la consommation. Le cluster et les données restent privés.
+Une identité dédiée en lecture reste l'alternative pour une application
+d'entreprise dont l'image doit rester privée ; un token personnel ou le token
+éphémère de la CI ne doit pas être transféré aux workers.
+
+Décision retenue le 14 octobre 2026 ; changement de visibilité **en attente**.
+Le package contient aussi des candidates rejetées : rendre le package public
+ne les rend pas promouvables. Seul le digest de l'artefact CI complet vérifié
+est retenu. La publication concerne toutes les versions de ce package et
+GitHub ne permet pas son retour en privé. La procédure et le contrôle anonyme
+sont décrits dans le [runbook](../demo-v1/DEMO-5-MINUTES.md).
+
 T08–T18 restent à faire. Leur exécution sur l'ancien staging est indisponible.
 Avant reprise : nouvel inventaire source, capacité, environnement de répétition,
 sauvegarde restaurée et révision des ADR concernées. Demo v1 ne les remplace
