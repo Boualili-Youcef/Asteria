@@ -1,4 +1,8 @@
-# Registre des preuves Demo v1
+# Journal technique initial Demo v1
+
+Les premières sections conservent les validations avant activation K3s. Le
+[parcours courant](../../demo/README.md) présente la validation finale sans
+nécessiter la lecture de ce journal.
 
 Date de session : **2026-10-14**. Référence initiale du dépôt : `fe8596b`.
 Les commits de la branche identifient les fichiers livrés ; aucune version
@@ -33,7 +37,7 @@ Voir la [collecte neutralisée](../../demo/evidence/registry-audit-20261014.json
 Le namespace de démo reste absent, les trois nœuds Ready, et aucun workload
 historique n'a été modifié.
 
-Le [bootstrap](BOOTSTRAP.md) est préparé, sans mutation cloud. Les tests
+Le [guide opérateur](../../demo/RUNBOOK.md) est préparé, sans mutation cloud. Les tests
 locaux du générateur vérifient modes privés, refus d'écrasement et refus de
 sortie dans le dépôt, y compris via symlink. PostgreSQL a passé SELECT 1 avec
 les restrictions de runtime proposées ; la première configuration de socket
@@ -199,3 +203,26 @@ Secret, une adresse privée ou un export brut de l'environnement.
 
 Une durée non mesurée reste absente. Un test simulé est identifié comme tel.
 Le site présente ces états ; il ne convertit pas un scénario préparé en replay.
+
+## Validation K3s finale — 14 octobre 2026
+
+La release CI 38622409565 est réellement exécutée dans asteria-demo :
+promotion 36,323 s ; readiness invalide, échec et rollback vérifiés en
+209,505 s ; test métier après rollback 12,151 s. Trois commandes synthétiques
+ont été créées, relues et archivées. Les accès réseau et RBAC non autorisés
+ont été refusés, y compris depuis un namespace historique.
+
+Le premier essai Helm 3.15 RC a dépassé son délai puis a été annulé ; la
+reprise avec 3.19.0 stable a réussi, sans attribution définitive de cause.
+Le client validé est maintenant exigé. Les 64 lectures health/ready observées
+pendant l'exercice ont retourné 200 ; aucune disponibilité continue n'est déduite.
+
+Les quatre Deployments de démo sont disponibles, trois nœuds sont Ready et
+les images historiques restent identiques. Les Pods temporaires sont retirés,
+le tunnel est fermé et le fichier du token court est supprimé. Les services de
+démo restent installés. Les flux data internes sont une exception de lab sur
+données factices, sans réutilisation de credential historique.
+
+Preuves : [replay K3s](../../demo/evidence/kubernetes-flow-20261014.json),
+[release](../../demo/evidence/orders-release.json),
+[CI](../../demo/evidence/ci-verification-20261014.json).

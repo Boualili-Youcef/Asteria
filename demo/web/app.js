@@ -20,10 +20,22 @@ fetch('evidence.json').then(response => {
   document.getElementById('source-state').textContent = data.source_state;
   document.getElementById('observed-at').textContent = data.observed_at;
   const list = document.getElementById('steps');
+  if (data.kubernetes_summary) {
+    const summary = data.kubernetes_summary;
+    document.getElementById('promotion-state').textContent = 'Vérifiés · preuve datée';
+    document.getElementById('promotion-state').classList.remove('pending');
+    document.getElementById('reliability-intro').textContent = 'Une readiness invalide a été testée dans le namespace isolé. Échec, rollback, digest précédent, probes et parcours métier ont été observés sur K3s.';
+    document.getElementById('rollback-badge').textContent = 'VÉRIFIÉ SUR K3S';
+    document.getElementById('rollback-title').textContent = 'Le retour arrière est enregistré';
+    document.getElementById('rollback-description').textContent = `L’exercice a duré ${summary.rollback_seconds} s, avec un timeout Helm de 180 s. Le digest précédent et les probes ont été vérifiés, puis une nouvelle commande a été archivée. Les données sont factices et temporaires ; les flux data internes de ce lab ne sont pas chiffrés. Aucune preuve de HA ou DR n’en découle.`;
+    document.getElementById('business-test-description').textContent = 'Le test K3s crée une commande dans la seule base synthétique, la relit et retrouve exactement son identifiant dans processed_notifications. Il vérifie aussi le compteur du worker après le retour arrière.';
+    document.getElementById('business-test-link').href = repo + 'demo/scripts/kubernetes-e2e.py';
+    document.getElementById('metrics-scope').textContent = 'Ces requêtes concernent le Prometheus historique. Les métriques de la démo sont contrôlées directement par port-forward privé ; ce namespace n’est pas ajouté au scraping historique. Les compteurs restent volatils.';
+  }
   if (data.baseline_scan) {
     const proof = document.getElementById('scan-proof');
     proof.hidden = false;
-    proof.textContent = `Refus réellement observé en CI : la candidate utilisant la base historique Debian a été bloquée sur ${data.baseline_scan.high_findings} signalements HIGH et ${data.baseline_scan.critical_findings} CRITICAL. Cette preuve de scan est distincte du rollback K3s encore non validé.`;
+    proof.textContent = `Refus réellement observé en CI : la candidate utilisant la base historique Debian a été bloquée sur ${data.baseline_scan.high_findings} signalements HIGH et ${data.baseline_scan.critical_findings} CRITICAL. Cette preuve de scan est distincte du scénario de rollback K3s.`;
   }
   if (data.functional_replay) {
     const replay = data.functional_replay;
@@ -31,7 +43,8 @@ fetch('evidence.json').then(response => {
       order_persisted_and_matching_notification_archived: 'La commande synthétique a été persistée dans PostgreSQL et son événement retrouvé dans l’archive du worker.',
       redis_failure_readiness_503_liveness_200: replay.fault_mode === 'redis_process_paused_network_preserved' ? 'Le processus Redis a été suspendu en conservant son réseau : Orders a retourné 503 sur /ready et 200 sur /health.' : 'Redis a été arrêté dans le seul environnement de test : Orders a retourné 503 sur /ready et 200 sur /health.',
       redis_recovered_second_order_archived: 'Après reprise de Redis, /ready est revenu à 200 et une deuxième commande a été archivée.',
-      worker_counter_2: 'Le compteur du worker indique deux événements traités. Les conteneurs et le réseau du test ont ensuite été nettoyés.'
+      worker_counter_2: 'Le compteur du worker indique deux événements traités. Les conteneurs et le réseau du test ont ensuite été nettoyés.',
+      worker_counter_observed: `Le compteur du worker de démo indique ${replay.worker_counter} événements traités. Le test confirme l’archive de la commande créée après le rollback.`
     };
     let index = 0;
     function showReplay() {

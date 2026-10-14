@@ -131,7 +131,7 @@ def main():
                    "sys.exit('Unexpected access: network isolation failed')\n")
         probes.append(resource('Pod', 'demo-network-' + role, spec={
             'restartPolicy': 'Never', 'automountServiceAccountToken': False,
-            'activeDeadlineSeconds': 30,
+            'activeDeadlineSeconds': 120,
             'securityContext': {'runAsNonRoot': True, 'runAsUser': 10001, 'runAsGroup': 10001,
                                 'seccompProfile': {'type': 'RuntimeDefault'}},
             'containers': [{'name': 'probe', 'image': release['image'] + '@' + release['digest'],

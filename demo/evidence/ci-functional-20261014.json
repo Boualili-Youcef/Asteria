@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "environment": "local-docker",
-  "date": "2026-10-14T18:25:42.102417+00:00",
-  "source_commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
+  "date": "2026-10-14T19:18:54.115163+00:00",
+  "source_commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
   "cloud_mutations": false,
   "kubernetes_rollback": "not_tested",
   "status": "passed",
@@ -13,16 +13,16 @@
     "worker_counter_2"
   ],
   "application_image_ids": {
-    "orders-api": "sha256:9a06bdef0ac36cdbc0d7d4bf9e27a011e44711c50856dc0aa7d845c56f4e1bea",
-    "notifications-worker": "sha256:c6b8f4eff9fe55b1aa136668868b16936036daf062cbfb67765e91dedb21ee49"
+    "orders-api": "sha256:b98f41aac8bd16678b02b2b4fff6a6230648d27e39fc15e4d9cd787892b6a261",
+    "notifications-worker": "sha256:817cc9280335df9066072dea7abae7e8d7671eedf40c2372a1bf97a0194bc996"
   },
   "source_files_match_images": true,
   "postgres_image": "postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4",
   "redis_image": "redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005",
   "fault_mode": "redis_process_paused_network_preserved",
   "cleanup": "passed",
-  "duration_seconds": 10.445,
+  "duration_seconds": 10.597,
   "execution_context": "github-actions",
-  "run_id": "38614847670",
-  "orders_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa"
+  "run_id": "38622409565",
+  "orders_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47"
 }

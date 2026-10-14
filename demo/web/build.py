@@ -55,6 +55,34 @@ if report_path.is_file():
         step.update(status='TEST DOCKER RÉEL RÉUSSI', short_status='VÉRIFIÉ',
                     description='Le test Docker a créé puis relu une commande et retrouvé son événement archivé par le worker. Redis rendu non répondant a produit /ready=503 et /health=200, puis une deuxième commande a été archivée après reprise. Nettoyage vérifié. Durée totale : ' + str(report['duration_seconds']) + ' s. Ce résultat ne démontre pas un déploiement K3s.',
                     proof=str(report_path.relative_to(ROOT)))
+flow_path = ROOT / 'demo/evidence/kubernetes-flow-20261014.json'
+if flow_path.is_file():
+    flow = json.loads(flow_path.read_text())
+    if (flow.get('status') != 'passed' or flow['promotion']['status'] != 'promoted'
+            or flow['failure_drill']['status'] != 'failed_then_rolled_back'
+            or flow['post_rollback_functional']['status'] != 'passed'
+            or flow['promotion']['release'] != release):
+        raise SystemExit('Incomplete or inconsistent Kubernetes proof')
+    proof = str(flow_path.relative_to(ROOT))
+    promotion = flow['promotion']['duration_seconds']
+    rollback = flow['failure_drill']['duration_seconds']
+    functional = flow['post_rollback_functional']
+    data['steps'][2].update(status='PROMOTION K3S EXÉCUTÉE ET VÉRIFIÉE', short_status='VÉRIFIÉ',
+        description=f'La release Orders a été promue dans asteria-demo en {promotion} s. Le digest demandé, les imageID, le rollout et les trois probes concordent. L’opérateur utilise un token court et des droits limités ; la CI ne contacte pas le cluster.', proof=proof)
+    data['steps'][3].update(status='PARCOURS MÉTIER K3S RÉUSSI APRÈS ROLLBACK', short_status='VÉRIFIÉ',
+        description='Une commande synthétique a été créée, relue et retrouvée avec le même order_id dans l’archive du worker après le rollback. PostgreSQL, Redis et le worker sont séparés des services historiques. Durée du test : ' + str(functional['duration_seconds']) + ' s.',
+        command='python3 demo/scripts/kubernetes-e2e.py … --execute', proof=proof)
+    data['steps'][4].update(status='ÉCHEC CONTRÔLÉ ET ROLLBACK K3S VÉRIFIÉS', short_status='VÉRIFIÉ',
+        description=f'Une nouvelle révision avec readiness inexistante a échoué. Le rollback a rétabli le digest précédent, puis les probes et le parcours métier ont été revérifiés. Durée de l’exercice : {rollback} s, dont le timeout Helm de 180 s.', proof=proof)
+    data['measures'][2].update(value=str(rollback) + ' s', note='Exercice readiness invalide, timeout de 180 s puis retour arrière et probes vérifiés. Mesure datée de lab, aucun SLO revendiqué.')
+    data['kubernetes_summary'] = {'date': flow['date'], 'promotion_seconds': promotion,
+        'rollback_seconds': rollback, 'worker_counter': functional['worker_processed_counter']}
+    data['functional_replay'] = {'date': functional['date'],
+        'duration_seconds': functional['duration_seconds'], 'proof': proof,
+        'context_label': 'K3S · DONNÉES SYNTHÉTIQUES · APRÈS ROLLBACK',
+        'checks': ['order_persisted_and_matching_notification_archived', 'worker_counter_observed'],
+        'worker_counter': functional['worker_processed_counter']}
+    data['observed_at'] = 'Vérifications K3s du ' + flow['date'] + '. Replay de preuves datées, aucune interrogation live depuis cette page.'
 output.mkdir(parents=True, exist_ok=True)
 for name in ['index.html', 'style.css', 'app.js']:
     shutil.copyfile(ROOT / 'demo/web' / name, output / name)

@@ -1,0 +1,642 @@
+{
+  "schema": 1,
+  "date": "2026-10-14T19:57:56.057393+00:00",
+  "environment": "source-k3s-asteria-demo",
+  "status": "passed",
+  "historical_workloads_modified": false,
+  "historical_business_data_accessed": false,
+  "new_virtual_machines": 0,
+  "data_scope": "disposable_synthetic_only",
+  "data_tls": "not_enabled_internal_lab_exception",
+  "baseline_install": {
+    "date": "2026-10-14T19:32:28.730005+00:00",
+    "baseline_install": "passed",
+    "release": {
+      "schema": 1,
+      "commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+      "run_id": "38614847670"
+    },
+    "duration_seconds": 48.314,
+    "rollout_and_probes": "passed",
+    "runtime_image_ids": [
+      "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa"
+    ]
+  },
+  "baseline_functional": {
+    "schema": 1,
+    "date": "2026-10-14T19:34:50.030532+00:00",
+    "environment": "source-k3s-asteria-demo",
+    "status": "passed",
+    "release": {
+      "schema": 1,
+      "commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+      "run_id": "38614847670"
+    },
+    "historical_data_accessed": false,
+    "order_created_and_read": true,
+    "persisted_orders_for_id": 1,
+    "archived_notifications_for_id": 1,
+    "worker_processed_counter": 1.0,
+    "duration_seconds": 20.799
+  },
+  "first_promotion_attempt": {
+    "status": "failed_then_rolled_back",
+    "date": "2026-10-14T19:40:26.213764+00:00",
+    "duration_seconds": 237.566,
+    "release": {
+      "schema": 1,
+      "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+      "run_id": "38622409565"
+    },
+    "previous_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+    "observed_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+    "runtime_image_ids": [
+      "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa"
+    ],
+    "failure_drill": false
+  },
+  "promotion": {
+    "status": "promoted",
+    "date": "2026-10-14T19:49:49.806736+00:00",
+    "duration_seconds": 36.323,
+    "release": {
+      "schema": 1,
+      "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+      "run_id": "38622409565"
+    },
+    "previous_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+    "observed_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+    "runtime_image_ids": [
+      "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47"
+    ],
+    "failure_drill": false
+  },
+  "post_promotion_functional": {
+    "schema": 1,
+    "date": "2026-10-14T19:51:12.641304+00:00",
+    "environment": "source-k3s-asteria-demo",
+    "status": "passed",
+    "release": {
+      "schema": 1,
+      "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+      "run_id": "38622409565"
+    },
+    "historical_data_accessed": false,
+    "order_created_and_read": true,
+    "persisted_orders_for_id": 1,
+    "archived_notifications_for_id": 1,
+    "worker_processed_counter": 2.0,
+    "duration_seconds": 10.669
+  },
+  "failure_drill": {
+    "status": "failed_then_rolled_back",
+    "date": "2026-10-14T19:57:02.529432+00:00",
+    "duration_seconds": 209.505,
+    "release": {
+      "schema": 1,
+      "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+      "run_id": "38622409565"
+    },
+    "previous_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+    "observed_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+    "runtime_image_ids": [
+      "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47"
+    ],
+    "failure_drill": true
+  },
+  "failure_events": [
+    {
+      "event": "upgrade_started",
+      "elapsed_seconds": 0.0
+    },
+    {
+      "event": "upgrade_failed",
+      "elapsed_seconds": 192.208
+    },
+    {
+      "event": "rollback_started",
+      "elapsed_seconds": 192.208
+    },
+    {
+      "event": "rollback_verified",
+      "elapsed_seconds": 209.504
+    }
+  ],
+  "post_rollback_functional": {
+    "schema": 1,
+    "date": "2026-10-14T19:57:56.057393+00:00",
+    "environment": "source-k3s-asteria-demo",
+    "status": "passed",
+    "release": {
+      "schema": 1,
+      "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+      "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+      "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+      "run_id": "38622409565"
+    },
+    "historical_data_accessed": false,
+    "order_created_and_read": true,
+    "persisted_orders_for_id": 1,
+    "archived_notifications_for_id": 1,
+    "worker_processed_counter": 3.0,
+    "duration_seconds": 12.151
+  },
+  "network_probes": {
+    "demo-network-allowed": {
+      "succeeded": true,
+      "phase": "Succeeded"
+    },
+    "demo-network-denied": {
+      "succeeded": true,
+      "phase": "Succeeded"
+    }
+  },
+  "cross_namespace_refused": true,
+  "bounded_operator": {
+    "date": "2026-10-14T19:28:45.439945+00:00",
+    "bounded_operator_session": true,
+    "token_lifetime_seconds": 1800,
+    "private_api_tunnel": true,
+    "rbac_checks_passed": {
+      "create deployments -n asteria-demo": true,
+      "create pods --subresource=portforward -n asteria-demo": true,
+      "get secrets -n team-orders": true,
+      "create namespaces": true,
+      "delete nodes": true
+    },
+    "admin_credentials_transferred": false
+  },
+  "operator_client": {
+    "helm": "3.19.0",
+    "official_archive_checksum_verified": true,
+    "binary_sha256": "e4722a77de9df824214aaf19d43687c49f7cbcf3b107905acea002173777d486"
+  },
+  "availability_sampling": {
+    "samples": [
+      {
+        "elapsed_seconds": 5.267,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 9.796,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 15.742,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 19.574,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 24.1,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 27.638,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 31.263,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 34.549,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 43.25,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 50.505,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 53.198,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 56.247,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 59.041,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 62.631,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 65.557,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 68.495,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 71.633,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 75.316,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 78.137,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 81.268,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 84.036,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 86.839,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 92.005,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 97.362,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 100.923,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 104.353,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 107.137,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 112.299,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 115.122,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 118.4,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 121.449,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 124.397,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 127.138,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 129.961,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 132.788,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 135.349,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 138.885,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 141.897,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 145.199,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 148.143,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 151.4,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 154.636,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 157.455,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 160.393,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 163.143,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 166.729,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 169.764,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 172.697,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 175.544,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 178.502,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 181.663,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 184.651,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 187.479,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 190.45,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 193.712,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 197.333,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 209.901,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 213.241,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 216.245,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 220.067,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 224.133,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 227.646,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 233.028,
+        "health": 200,
+        "ready": 200
+      },
+      {
+        "elapsed_seconds": 236.253,
+        "health": 200,
+        "ready": 200
+      }
+    ],
+    "sample_count": 64,
+    "all_sampled_health_200": true,
+    "all_sampled_ready_200": true,
+    "continuous_availability_claim": false,
+    "minimum_delay_between_samples_seconds": 2
+  },
+  "final_runtime": {
+    "demo_deployments": [
+      {
+        "name": "demo-notifications",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "docker.io/asteria/notifications-worker:m13"
+        ]
+      },
+      {
+        "name": "demo-postgres",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4"
+        ]
+      },
+      {
+        "name": "demo-redis",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005"
+        ]
+      },
+      {
+        "name": "orders-api",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47"
+        ]
+      }
+    ],
+    "invalid_readiness_404_event_count": 21,
+    "metrics": [
+      {
+        "pod": "demo-notifications-6b864d675c-bjp7q",
+        "containers": [
+          {
+            "name": "demo-notifications",
+            "cpu": "18824624n",
+            "memory": "59004Ki"
+          }
+        ]
+      },
+      {
+        "pod": "demo-postgres-86458584db-xsk8q",
+        "containers": [
+          {
+            "name": "demo-postgres",
+            "cpu": "41209211n",
+            "memory": "18624Ki"
+          }
+        ]
+      },
+      {
+        "pod": "demo-redis-79bb8675fb-tz6km",
+        "containers": [
+          {
+            "name": "demo-redis",
+            "cpu": "29173175n",
+            "memory": "4060Ki"
+          }
+        ]
+      },
+      {
+        "pod": "orders-api-6fc87b5f6c-d6sx4",
+        "containers": [
+          {
+            "name": "orders-api",
+            "cpu": "19028255n",
+            "memory": "54876Ki"
+          }
+        ]
+      }
+    ],
+    "quota_used": {
+      "limits.cpu": "1",
+      "limits.memory": "864Mi",
+      "persistentvolumeclaims": "0",
+      "pods": "4",
+      "requests.cpu": "80m",
+      "requests.memory": "288Mi",
+      "services.loadbalancers": "0",
+      "services.nodeports": "0"
+    },
+    "quota_hard": {
+      "limits.cpu": "2",
+      "limits.memory": "2Gi",
+      "persistentvolumeclaims": "0",
+      "pods": "8",
+      "requests.cpu": "500m",
+      "requests.memory": "768Mi",
+      "services.loadbalancers": "0",
+      "services.nodeports": "0"
+    },
+    "temporary_test_pods_removed": [
+      "demo-network-allowed",
+      "demo-network-denied"
+    ],
+    "data_workloads_kept": true
+  },
+  "source_after": {
+    "date": "2026-10-14T19:58:40.232569+00:00",
+    "node_count": 3,
+    "nodes_ready": 3,
+    "historical_deployments_healthy": true,
+    "historical_deployment_images_unchanged": true,
+    "node_usage": [
+      {
+        "cpu": "181752316n",
+        "memory": "1031564Ki"
+      },
+      {
+        "cpu": "167278394n",
+        "memory": "744992Ki"
+      },
+      {
+        "cpu": "319941059n",
+        "memory": "1810284Ki"
+      }
+    ]
+  },
+  "operator_session_closed": true,
+  "temporary_token_file_removed": true
+}

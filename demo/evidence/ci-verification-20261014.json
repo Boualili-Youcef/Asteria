@@ -1,13 +1,13 @@
 {
-  "run_id": "38614847670",
-  "commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
-  "image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+  "run_id": "38622409565",
+  "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+  "image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
   "conclusion": "success",
-  "url": "https://github.com/Boualili-Youcef/Asteria/actions/runs/38614847670",
+  "url": "https://github.com/Boualili-Youcef/Asteria/actions/runs/38622409565",
   "jobs": [
     {
       "name": "test",
-      "duration_seconds": 23.0,
+      "duration_seconds": 20.0,
       "conclusion": "success",
       "steps": [
         {
@@ -19,27 +19,27 @@
     },
     {
       "name": "release",
-      "duration_seconds": 79.0,
+      "duration_seconds": 83.0,
       "conclusion": "success",
       "steps": [
         {
           "name": "Build once and publish immutable candidate",
-          "duration_seconds": 19.0,
+          "duration_seconds": 20.0,
           "conclusion": "success"
         },
         {
           "name": "Scan the published candidate before allowing promotion",
-          "duration_seconds": 10.0,
+          "duration_seconds": 9.0,
           "conclusion": "success"
         },
         {
           "name": "Smoke test immutable image",
-          "duration_seconds": 8.0,
+          "duration_seconds": 7.0,
           "conclusion": "success"
         },
         {
           "name": "Synthetic Orders event flow",
-          "duration_seconds": 26.0,
+          "duration_seconds": 28.0,
           "conclusion": "success"
         }
       ]

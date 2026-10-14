@@ -1,7 +1,10 @@
-# D0 — Audit et contraintes
+# D0 — Inventaire avant activation K3s
 
 Date : 2026-10-14. Référence initiale : `fe8596b`. Branche : `demo/recruiter-v1`.
 But : préparer la démo Orders sans altérer l'AS-IS.
+
+Cet audit conserve le point de départ. Le résultat courant et le parcours de
+lecture simplifié sont dans [la présentation Demo](../../demo/README.md).
 
 ## Faits vérifiés
 
@@ -51,7 +54,7 @@ La présence d'un state source ne suffit pas à identifier une session Keystone.
 L'identité et les ressources source ont maintenant été vérifiées. Les mutations
 restent bloquées tant que l'isolation des données, les droits de promotion,
 et l'accord d'activation ne sont pas acquis. Le bootstrap est préparé dans
-[BOOTSTRAP](BOOTSTRAP.md), sans application cloud.
+[guide opérateur](../../demo/RUNBOOK.md), sans application cloud.
 
 ## Reproduction et suite
 

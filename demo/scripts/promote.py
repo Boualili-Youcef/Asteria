@@ -22,6 +22,17 @@ RELEASE = 'orders-demo'
 def run(args, timeout=60):
     result = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
     if result.returncode:
+        destination = os.environ.get('ASTERIA_OPERATOR_LOG')
+        if destination:
+            path = Path(destination).resolve()
+            if path == ROOT or ROOT in path.parents:
+                raise ValueError('Operator diagnostics must stay outside the repository')
+            descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+            with os.fdopen(descriptor, 'a') as stream:
+                if os.fstat(stream.fileno()).st_mode & 0o077:
+                    raise ValueError('Operator diagnostics must be private')
+                stream.write(json.dumps({'tool': args[0], 'exit_code': result.returncode,
+                                         'stderr': result.stderr}) + '\n')
         # Avoid publishing raw CLI errors, manifests or credential-bearing URLs.
         raise RuntimeError(f'{args[0]} {args[1]} failed (exit {result.returncode})')
     return result.stdout
@@ -72,8 +83,8 @@ class Target:
             raise ValueError('Cluster or namespace identity mismatch')
         if demo['metadata'].get('labels', {}).get('asteria.io/purpose') != 'demo-v1':
             raise ValueError('Namespace is not marked demo-v1')
-        if not run(['helm', 'version', '--short']).startswith('v3.'):
-            raise ValueError('This procedure requires Helm 3 (--atomic semantics)')
+        if not re.match(r'^v3\.19\.0(?:\+|$)', run(['helm', 'version', '--short']).strip()):
+            raise ValueError('Use the verified Helm 3.19.0 client for this procedure')
 
     def image(self):
         obj = json.loads(run(self.k + ['get', 'deployment', 'orders-api', '-o', 'json']))

@@ -1,7 +1,9 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -18,6 +20,25 @@ class DeliveryTests(unittest.TestCase):
 
     def test_valid_immutable_release(self):
         self.assertEqual(promote.validate_release(self.release())['run_id'], '123')
+
+    def test_failed_command_diagnostics_stay_in_private_operator_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'operator.jsonl'
+            failed = subprocess.CompletedProcess(['helm'], 1, '', 'private diagnostic')
+            with patch.dict(os.environ, {'ASTERIA_OPERATOR_LOG': str(path)}), \
+                 patch.object(promote.subprocess, 'run', return_value=failed):
+                with self.assertRaises(RuntimeError) as error:
+                    promote.run(['helm', 'upgrade'])
+            self.assertNotIn('private diagnostic', str(error.exception))
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            self.assertEqual(json.loads(path.read_text())['stderr'], 'private diagnostic')
+
+    def test_operator_log_cannot_write_into_repository(self):
+        with patch.dict(os.environ, {'ASTERIA_OPERATOR_LOG': str(ROOT / 'operator-forbidden.jsonl')}), \
+             patch.object(promote.subprocess, 'run', return_value=subprocess.CompletedProcess(['helm'], 1, '', 'private')):
+            with self.assertRaises(ValueError):
+                promote.run(['helm', 'upgrade'])
+        self.assertFalse((ROOT / 'operator-forbidden.jsonl').exists())
 
     def test_reject_wrong_repository_tag_injection_and_extra_fields(self):
         for field, value in [('image', 'ghcr.io/other/image'), ('digest', 'latest'),
@@ -52,6 +73,17 @@ class DeliveryTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 promote.Target('explicit', 'expected', 'demo')
         self.assertTrue(all(c.args[0][0] == 'kubectl' for c in run.call_args_list))
+
+    def test_operator_requires_the_stable_helm_version_used_in_live_validation(self):
+        system = json.dumps({'metadata': {'uid': 'system'}})
+        demo = json.dumps({'metadata': {'uid': 'demo', 'labels': {'asteria.io/purpose': 'demo-v1'}}})
+        for version, accepted in [('v3.15.0-rc.2', False), ('v4.2.0', False), ('v3.19.0+g3d8990f', True)]:
+            with self.subTest(version=version), patch.object(promote, 'run', side_effect=[system, demo, version]):
+                if accepted:
+                    promote.Target('explicit', 'system', 'demo')
+                else:
+                    with self.assertRaises(ValueError):
+                        promote.Target('explicit', 'system', 'demo')
 
     def test_successful_legacy_ci_without_functional_gate_is_rejected(self):
         data = self.release()

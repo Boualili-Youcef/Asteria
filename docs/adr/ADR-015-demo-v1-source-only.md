@@ -1,6 +1,6 @@
 # ADR-015 — Démonstration Orders sur le seul projet source
 
-- Statut : accepté pour le code et les validations locales ; activation cloud soumise à accord distinct
+- Statut : accepté pour le code et les validations locales ; activation isolée validée le 14 octobre 2026
 - Date : 2026-10-14
 - Propriétaire : Youcef Boualili
 - Portée : extension Demo v1, indépendante de T08–T18
@@ -65,7 +65,7 @@ Le package contient aussi des candidates rejetées : rendre le package public
 ne les rend pas promouvables. Seul le digest de l'artefact CI complet vérifié
 est retenu. La publication concerne toutes les versions de ce package et
 GitHub ne permet pas son retour en privé. La procédure et le contrôle anonyme
-sont décrits dans le [runbook](../demo-v1/DEMO-5-MINUTES.md).
+sont décrits dans le [runbook](../../demo/RUNBOOK.md).
 
 T08–T18 restent à faire. Leur exécution sur l'ancien staging est indisponible.
 Avant reprise : nouvel inventaire source, capacité, environnement de répétition,
@@ -74,10 +74,10 @@ pas et ne démontre ni HA, ni DR, ni SLO entreprise.
 
 ## Arrêt, impact et rollback
 
-Le plan de [bootstrap synthétique](../demo-v1/BOOTSTRAP.md) propose une
+Le plan de [bootstrap synthétique](../../demo/RUNBOOK.md#installation-initiale--seulement-dans-un-namespace-neuf) propose une
 exception au chiffrement interne PostgreSQL/Redis pour des données factices
-jetables et un secret neuf. Cette exception n'est pas acquise : l'accord
-d'activation doit la mentionner explicitement, sinon préparer une variante TLS.
+jetables et un secret neuf. Cette exception a été retenue uniquement pour le périmètre synthétique de la
+démo ; elle ne s'applique pas aux données historiques ou à la cible entreprise.
 Le namespace et les policies ne constituent pas un chiffrement.
 
 Les ajouts locaux sont réversibles par revert des commits Demo v1. Le chart
@@ -90,3 +90,10 @@ Une release saine par digest doit exister avant promotion. Un échec entraîne
 un rollback Helm, puis une vérification du digest précédent et de `/ready`.
 Un rollback non vérifié bloque la démo live. L'effacement des données et du
 namespace reste une opération séparée, jamais automatique dans le cloud.
+
+## Validation observée
+
+Le parcours K3s est exécuté : promotion 36,323 s, drill et rollback 209,505 s,
+puis test métier après retour arrière réussi en 12,151 s. Les refus réseau
+et RBAC sont observés. Helm 3.19.0 stable est désormais exigé. Voir le
+[replay neutralisé](../../demo/evidence/kubernetes-flow-20261014.json).

@@ -8,9 +8,9 @@
       "title": "Commit & tests",
       "status": "TESTS LOCAUX EXÉCUTÉS",
       "short_status": "VÉRIFIÉ",
-      "description": "20 tests applicatifs et 10 contrôles de livraison passent, dont un refus Redis en boucle locale. Les gardes vérifient les paramètres dangereux et le rollback simulé ; ils ne prouvent pas un déploiement Kubernetes.",
+      "description": "20 tests applicatifs et 13 contrôles de livraison passent, dont un refus Redis en boucle locale. Les gardes vérifient les paramètres dangereux et le rollback simulé ; ils ne prouvent pas un déploiement Kubernetes.",
       "command": "bash demo/scripts/test-offline.sh",
-      "proof": "docs/demo-v1/EVIDENCE.md"
+      "proof": "demo/README.md"
     },
     {
       "title": "Image & digest",
@@ -34,7 +34,7 @@
       "short_status": "À VALIDER",
       "description": "Le test Docker contrôle la persistance Orders et l'archive du même événement par le worker. Son résultat daté figure dans le registre lorsqu'il a réellement été exécuté. Aucun accès aux bases historiques.",
       "command": "python3 demo/scripts/local-e2e.py --help",
-      "proof": "docs/demo-v1/EVIDENCE.md"
+      "proof": "demo/README.md"
     },
     {
       "title": "Échec & rollback",
@@ -42,7 +42,7 @@
       "short_status": "À VALIDER",
       "description": "Une readiness volontairement invalide doit empêcher la nouvelle version de devenir disponible. Après échec, le script rétablit la révision précédente et vérifie image, rollout, /health, /ready et /metrics. L'exercice K3s reste à exécuter sur un périmètre autorisé.",
       "command": "promote.py … --failure-drill --execute --evidence /chemin/prive/drill.jsonl",
-      "proof": "docs/demo-v1/DEMO-5-MINUTES.md"
+      "proof": "demo/RUNBOOK.md"
     }
   ],
   "measures": [

@@ -1,65 +1,63 @@
 # Asteria
 
-> **[Ouvrir la démo publique](https://boualili-youcef.github.io/Asteria/)** —
-> [Parcours en 5 minutes](docs/demo-v1/DEMO-5-MINUTES.md) ·
-> [Preuves datées](docs/demo-v1/EVIDENCE.md) · [Architecture](docs/demo-v1/ARCHITECTURE.md) ·
-> [Limites](docs/demo-v1/LIMITATIONS.md).
-> Présentation statique et replay d'un test Docker réel, sans VPN ni compte.
-> Le parcours live K3s et son rollback restent à valider.
+**Une livraison suivie du commit au service Kubernetes, avec un retour arrière vérifié.**
 
-Asteria est un projet de Platform Engineering qui simule l'évolution de
-l'architecture d'une PME SaaS européenne d'environ 100 à 500 employés.
+[Ouvrir la démonstration](https://boualili-youcef.github.io/Asteria/) ·
+[Comprendre le projet](demo/README.md) · [Rejouer le parcours](demo/RUNBOOK.md)
 
-La phase 1 a reconstruit un état existant (AS-IS) réaliste, fonctionnel mais
-volontairement imparfait, sur un lab OpenStack à ressources limitées. La phase
-2 transforme maintenant cet état vers une architecture TO-BE guidée par les
-risques, les objectifs de service et des preuves de migration.
+Asteria est un lab Platform Engineering sur OpenStack. Il part d'une
+infrastructure fonctionnelle mais imparfaite et améliore un parcours concret :
+la livraison d'Orders, une API de commandes.
 
-## Documents de pilotage
+```mermaid
+flowchart LR
+    Commit --> CI[Tests et scan]
+    CI --> Image[GHCR : image par digest]
+    Image --> Operator[Promotion privée]
+    Operator --> K3s[Orders sur K3s]
+    K3s --> Verify[Test métier et métriques]
+    Verify --> Rollback[Échec contrôlé et rollback]
+```
 
-- `PROJECT_CONTEXT.md` : contexte, périmètre et décisions structurantes ;
-- `AGENTS.md` : règles de contribution et d'exploitation ;
-- `PHASE_1_BACKLOG.md` : missions chronologiques de la phase 1 ;
-- `PHASE_2_BACKLOG.md` : missions chronologiques de transformation TO-BE ;
-- `archi.md` : diagramme Mermaid de l'architecture AS-IS validée ;
-- `contexte.md` : matériau de réflexion initial et historique de cadrage.
+## Ce qui fonctionne
 
-## Phase actuelle
+| Vérification du 14 octobre 2026 | Résultat |
+|---|---:|
+| Promotion du nouveau digest sur K3s | 36,323 s |
+| Échec readiness puis rollback vérifié | 209,505 s |
+| Commandes créées, relues et archivées sur K3s | 3 sur 3 |
+| Accès réseau et droits non autorisés | refusés lors des tests |
 
-M00 à M16 sont terminées et la phase 1 AS-IS est clôturée. L'infrastructure
-comprend les cinq VM, PostgreSQL, le cluster K3s, ingress-nginx, Redis partagé
-et une observabilité partielle. Les trois applications minimales sont déployées
-dans Kubernetes par trois méthodes volontairement différentes. Leur livraison
-utilise deux workflows GitHub Actions distincts et un chemin opérateur manuel.
+Les [preuves enregistrées](demo/evidence/kubernetes-flow-20261014.json)
+relient les résultats au digest et au run CI. Le site public présente ces
+preuves ; il ne déclenche aucun déploiement.
 
-L'audit final se trouve dans :
+## Une infrastructure volontairement limitée
 
-- `docs/phase-1-as-is/06-deployment-methods.md` ;
-- `docs/phase-1-as-is/07-observability-as-is.md` ;
-- `docs/phase-1-as-is/08-as-is-known-issues.md` ;
-- `docs/evidence/phase-1/M16-as-is-audit-complete.md`.
+Cinq VM : un bastion, un control plane K3s, deux workers et un PostgreSQL
+historique. La démo utilise un namespace séparé et ses propres PostgreSQL,
+Redis et worker, avec données factices. Aucune VM supplémentaire ; aucun
+accès public au cluster ; les workloads historiques restent inchangés.
 
-La phase 2 TO-BE est ouverte depuis le 30 août 2026. T00 à T07 sont terminées :
-charte, exigences/SLO/RTO/RPO, inventaire des deux projets OpenStack, treize ADR
-approuvées, temps synchronisé, state protégé, backups initiaux et break-glass
-validé, puis staging CAP-05 séparé avec deux VM, fondations idempotentes et
-pare-feu hôte compensatoire. T06 fournit GitHub SSO, WebAuthn par session, RBAC,
-certificats courts, accès SSH/Kubernetes/PostgreSQL audités et break-glass
-conservé. T07 ajoute sur le staging K3s/Cilium/Hubble, default-deny, RBAC
-minimal, Pod Security Admission, quotas et stockage synthétique validé. Le
-source K3s/Flannel reste intact. Ces résultats sont historiques : le second
-compte n'est désormais plus accessible. L'extension Demo v1 utilise seulement
-le source ou Docker local ; T08–T18 nécessitent une requalification des
-dépendances selon [ADR-015](docs/adr/ADR-015-demo-v1-source-only.md).
+Le lab consomme 9/10 vCPU et 17/20 Gio de quota Nova. Le namespace de démo
+réserve 80m CPU et 288 MiB de RAM. Ce ne sont pas des garanties de performance.
 
-Parcours de lecture recommandé :
+## Lire le code
 
-1. `PHASE_2_BACKLOG.md` pour l'état et l'ordre des missions ;
-2. `docs/phase-2-to-be/09-target-architecture-decisions.md` pour la cible ;
-3. `docs/phase-2-to-be/13-t07-kubernetes-foundation-runbook.md`, puis la preuve
-   `docs/evidence/phase-2/T07-target-kubernetes-foundation.md` ;
-4. les ADR seulement pour comprendre un arbitrage ;
-5. `docs/evidence/phase-2/` seulement pour auditer les résultats.
+- [Applications](apps/) : Orders, Identity et Notifications, en Python/FastAPI.
+- [Chart Orders](k8s/current-state/orders-api/chart/) : réutilisé pour la démo.
+- [CI Orders](.github/workflows/orders-demo.yml) : tests, image, scan et artefact.
+- [Scripts de démo](demo/scripts/) : inventaire, promotion et test métier.
+- [Terraform et Ansible](infra/) : construction et configuration du lab.
 
-Les propositions historiques et matrices détaillées restent utiles comme
-références, mais ne font pas partie du parcours de lecture quotidien.
+## Limites assumées
+
+Ce lab n'est ni HA ni une plateforme de production. Les données de démo sont
+jetables ; leurs flux PostgreSQL/Redis internes ne sont pas chiffrés. Le worker
+réutilise une image M13 contrôlée en cache. L'absence d'outbox et de DLQ reste
+visible. [Détails et arbitrages](demo/README.md#limites).
+
+L'audit AS-IS et les missions TO-BE restent conservés dans `docs/`. Le second
+projet OpenStack historique est inaccessible ; T08–T18 ne sont pas déclarées
+terminées par cette démo. Voir le [contexte](PROJECT_CONTEXT.md), le
+[backlog](PHASE_2_BACKLOG.md) et [ADR-015](docs/adr/ADR-015-demo-v1-source-only.md).
