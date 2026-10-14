@@ -94,6 +94,12 @@ signalements HIGH et zéro CRITICAL : OpenSSL `libcrypto3`/`libssl3` et `libuuid
 Les versions corrigées annoncées dans le rapport sont installées explicitement :
 `libcrypto3=3.5.8-r0`, `libssl3=3.5.8-r0`, `libuuid=2.42.3-r1`.
 Le gate reste identique. La candidate intermédiaire n'est pas promouvable.
+Le build suivant a révélé que les versions minimales OpenSSL `3.5.8-r0`
+étaient déjà remplacées dans le dépôt stable par `3.5.9-r0`. L'index officiel
+`v3.24/main/x86_64/APKINDEX.tar.gz` a été lu : `libcrypto3` et `libssl3`
+`3.5.9-r0`, `libuuid` `2.42.3-r1`. Ces versions disponibles sont désormais
+épinglées. Les paquets retirés d'un dépôt stable peuvent bloquer un futur
+rebuild ; l'image publiée par digest reste l'artefact promu, sans reconstruction.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :
