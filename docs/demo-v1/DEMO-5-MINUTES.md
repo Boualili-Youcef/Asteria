@@ -5,6 +5,9 @@ exécutée, avec les tests et limites accessibles en quelques clics.
 
 ## Présentation autonome — disponible sans VPN
 
+Ouvrir directement [le site publié](https://boualili-youcef.github.io/Asteria/).
+Pour le reconstruire sur son propre poste :
+
 1. Construire le site dans un répertoire neuf :
 
    ```bash

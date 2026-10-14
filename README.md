@@ -1,11 +1,11 @@
 # Asteria
 
-> **Démo en 5 minutes** — [Parcours guidé](docs/demo-v1/DEMO-5-MINUTES.md) ·
+> **[Ouvrir la démo publique](https://boualili-youcef.github.io/Asteria/)** —
+> [Parcours en 5 minutes](docs/demo-v1/DEMO-5-MINUTES.md) ·
 > [Preuves datées](docs/demo-v1/EVIDENCE.md) · [Architecture](docs/demo-v1/ARCHITECTURE.md) ·
 > [Limites](docs/demo-v1/LIMITATIONS.md).
-> Une présentation statique autonome se construit depuis `demo/web/`.
-> Le parcours live K3s et son rollback restent à valider ; aucun lien hébergé
-> n'est annoncé avant publication réelle.
+> Présentation statique et replay d'un test Docker réel, sans VPN ni compte.
+> Le parcours live K3s et son rollback restent à valider.
 
 Asteria est un projet de Platform Engineering qui simule l'évolution de
 l'architecture d'une PME SaaS européenne d'environ 100 à 500 employés.

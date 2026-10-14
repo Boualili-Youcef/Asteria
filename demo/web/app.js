@@ -47,7 +47,7 @@ fetch('evidence.json').then(response => {
     document.getElementById('step-title').textContent = step.title;
     document.getElementById('step-description').textContent = step.description;
     document.getElementById('step-command').textContent = step.command;
-    document.getElementById('step-proof').href = repo + step.proof;
+    document.getElementById('step-proof').href = step.proof.startsWith('https://github.com/Boualili-Youcef/Asteria/') ? step.proof : repo + step.proof;
   }
   data.steps.forEach((step, index) => {
     const li = document.createElement('li');

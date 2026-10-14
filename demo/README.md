@@ -21,5 +21,7 @@ Le site se construit avec une allowlist de quatre fichiers publics. Héberger
 uniquement le répertoire produit, jamais la racine du dépôt ou `.secrets`.
 Sur GitHub Pages, utiliser le bundle comme artefact statique, avec les permissions
 `pages:write` et `id-token:write` uniquement dans un job de publication autorisé.
-L'hébergement doit faire l'objet d'une activation distincte ; aucun lien public
-n'est inventé avant déploiement.
+Le site est publié sur [GitHub Pages](https://boualili-youcef.github.io/Asteria/),
+avec `.github/workflows/demo-site.yml`. Une modification de `demo/web/` ou
+`demo/evidence/` sur la branche de démo déclenche sa republication ; aucune
+action n'est effectuée sur le cloud privé.

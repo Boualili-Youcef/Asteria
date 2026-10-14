@@ -5,8 +5,8 @@
 - Branche : `demo/recruiter-v1`, référence de départ `fe8596b`
 - Décision : [ADR-015](../../adr/ADR-015-demo-v1-source-only.md)
 - Statut : D0 partiel, D1 tests locaux validés, D2/D3 code testé localement,
-  D4 observations partielles, D5 bundle statique local, D6 documentation livrée.
-  Démonstration live et publication externe non validées.
+  D4 observations partielles, D5 site statique publié et contrôlé en HTTP,
+  D6 documentation livrée. Démonstration live non validée.
 
 ## Objectif, dépendances et résultat attendu
 
@@ -44,7 +44,7 @@ préservés et exclus des commits de livraison.
 
 ## Impact, backup, rollback et arrêt
 
-Ajouts locaux uniquement, aucun contrôleur supplémentaire. Aucun apply
+Ajouts de code, publication GitHub/GHCR et site public, aucun contrôleur supplémentaire. Aucun apply
 Terraform, nouvelle VM, migration, écriture PostgreSQL historique ou déploiement
 Kubernetes. Les fichiers suivis sont récupérables par Git ; les modifications
 préexistantes ne sont ni écrasées ni embarquées dans les commits.
@@ -73,7 +73,8 @@ restauration Kubernetes réelle n'est revendiquée.
 
 ## Dettes et prochaine action autorisée
 
-Achever les preuves locales disponibles, puis faire approuver la publication
-de la branche/CI et le bootstrap synthétique, chacun avec son impact précis.
+La branche/CI et le site sont publiés dans le périmètre approuvé. Achever la
+validation CI, puis préparer et faire approuver le bootstrap synthétique avec
+son impact précis, après réinventaire source.
 La prochaine mission TO-BE reste T08 après requalification de ses dépendances.
 Demo v1 ne clôture pas T08–T18 et n'autorise pas leur exécution automatique.

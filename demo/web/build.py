@@ -2,6 +2,7 @@
 """Build a static-only public bundle from an explicit allowlist."""
 import argparse
 import json
+import re
 from pathlib import Path
 import shutil
 
@@ -17,6 +18,20 @@ if output == ROOT or output in ROOT.parents:
 data = json.loads((ROOT / 'demo/evidence/presentation.json').read_text())
 if data.get('mode') != 'dated-evidence-not-live':
     raise SystemExit('A public evidence mode must be explicit')
+release_path = ROOT / 'demo/evidence/orders-release.json'
+if release_path.is_file():
+    release = json.loads(release_path.read_text())
+    if (release.get('schema') != 1 or
+            release.get('image') != 'ghcr.io/boualili-youcef/asteria/orders-api' or
+            not re.fullmatch('sha256:[0-9a-f]{64}', release.get('digest', '')) or
+            not re.fullmatch('[0-9a-f]{40}', release.get('commit', '')) or
+            not re.fullmatch('[1-9][0-9]*', release.get('run_id', ''))):
+        raise SystemExit('Invalid recorded release')
+    data['steps'][1].update(status='CI ET SCAN RÉUSSIS · DIGEST ENREGISTRÉ', short_status='VÉRIFIÉ',
+        description='Image construite et publiée par le run ' + release['run_id'] +
+        ', pour le commit ' + release['commit'] + '. Tests, scan HIGH/CRITICAL et smoke réussis. SBOM et provenance attachés ; ils ne sont pas encore vérifiés à l’admission K3s.',
+        command=release['image'] + '@' + release['digest'],
+        proof='https://github.com/Boualili-Youcef/Asteria/actions/runs/' + release['run_id'])
 report_path = ROOT / 'demo/evidence/local-e2e-20261014-r2.json'
 if report_path.is_file():
     report = json.loads(report_path.read_text())

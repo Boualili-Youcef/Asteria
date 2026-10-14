@@ -30,8 +30,9 @@ de production. Le registre [EVIDENCE](EVIDENCE.md) fait foi pour les résultats.
 - La présentation publique est statique. Ses boutons explorent les preuves et
   un scénario préparé ; ils ne pilotent pas le cloud. Aucun replay de promotion
   réussie n'est annoncé sans enregistrement correspondant.
-- Le site n'a pas de lien public tant qu'un hébergement n'a pas été réellement
-  publié. Un bundle buildable n'est pas une preuve de publication.
+- Le [site public](https://boualili-youcef.github.io/Asteria/) est publié sur
+  GitHub Pages et contrôlé en HTTP 200. Sa revue visuelle automatisée n'a pas
+  pu être réalisée faute de navigateur disponible dans cette session.
 
 Les dettes M16 restent ouvertes globalement. La reprise T08–T18 exige une
 requalification de capacité et de répétition selon ADR-015.

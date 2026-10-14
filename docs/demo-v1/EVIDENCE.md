@@ -19,7 +19,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
 | CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; premières tentatives bloquées à l'installation Trivy, sans rapport ni artefact de promotion ; correction en cours de validation |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
-| Site statique | build allowlist, syntaxe JS, HTTP local | build local ; contrôle visuel navigateur indisponible dans la session |
+| Site statique public | workflow Pages 38600626583, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; replay Docker présent ; contrôle visuel navigateur indisponible |
 
 ## Commandes exécutées et reproduction
 
@@ -70,6 +70,11 @@ figée par digest, avec le même gate HIGH/CRITICAL. Aucun défaut n'est ignoré
 Le premier déploiement Pages a été refusé car seule `main` était autorisée à
 publier. La seule branche `demo/recruiter-v1` a été ajoutée à cette règle,
 dans le périmètre de publication approuvé. Aucune protection cloud modifiée.
+La relance Pages a ensuite réussi :
+[exécution](https://github.com/Boualili-Youcef/Asteria/actions/runs/38600626583),
+[site publié](https://boualili-youcef.github.io/Asteria/). Le bundle est limité
+à quatre fichiers publics ; seule la branche de démo supplémentaire peut le
+publier, sans élargissement des accès au cloud.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :
