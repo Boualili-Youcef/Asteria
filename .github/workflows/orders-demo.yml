@@ -70,18 +70,19 @@ jobs:
             org.opencontainers.image.source=https://github.com/Boualili-Youcef/Asteria
             org.opencontainers.image.revision=${{ github.sha }}
       - name: Scan the published candidate before allowing promotion
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
-        with:
-          image-ref: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
-          scanners: vuln
-          severity: HIGH,CRITICAL
-          exit-code: '1'
-          format: json
-          output: orders-scan.json
-          version: v0.65.0
         env:
+          IMAGE: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
           TRIVY_USERNAME: ${{ github.actor }}
           TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p scan-report
+          # Official Trivy 0.76.0, resolved and pinned as an OCI index.
+          docker run --rm --volume "$PWD/scan-report:/report" \
+            --env TRIVY_USERNAME --env TRIVY_PASSWORD \
+            ghcr.io/aquasecurity/trivy@sha256:2416d1f74045b57274df1a340eee6b510cacd73c66a6ccb8da092b117eb7d222 \
+            image --disable-telemetry --image-src remote --scanners vuln \
+            --severity HIGH,CRITICAL --exit-code 1 --format json \
+            --output /report/orders-scan.json "$IMAGE"
       - name: Smoke test immutable image
         env:
           IMAGE: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
@@ -120,6 +121,6 @@ jobs:
         if: always()
         with:
           name: orders-scan-${{ github.run_id }}
-          path: orders-scan.json
+          path: scan-report/orders-scan.json
           if-no-files-found: warn
           retention-days: 14

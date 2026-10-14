@@ -17,7 +17,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Garde-fous de livraison | unittest + rendu Helm réel | six tests réussis, dont mauvais cluster, artefact invalide et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
-| CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | PRÉPARÉ ; run GitHub non exécuté à ce stade |
+| CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; premières tentatives bloquées à l'installation Trivy, sans rapport ni artefact de promotion ; correction en cours de validation |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
 | Site statique | build allowlist, syntaxe JS, HTTP local | build local ; contrôle visuel navigateur indisponible dans la session |
 
@@ -61,6 +61,15 @@ ont été comparés au chart de `fe8596b` : ils sont sémantiquement identiques.
 YAML, liens des nouveaux documents, motifs de credentials et `git diff --check`
 passent ; `actionlint` 1.7.7 valide le nouveau workflow. Le navigateur de
 contrôle n'est pas disponible ; aucune validation visuelle n'est revendiquée.
+
+Les runs CI `38600089860` et `38600626522` ont passé les tests et publié leur
+image candidate, puis l'installation du binaire Trivy 0.65.0 a retourné 1 sans
+produire de rapport. Le wrapper téléchargeait un installeur depuis sa branche
+`main`. La correction utilise directement l'image officielle Trivy 0.76.0,
+figée par digest, avec le même gate HIGH/CRITICAL. Aucun défaut n'est ignoré.
+Le premier déploiement Pages a été refusé car seule `main` était autorisée à
+publier. La seule branche `demo/recruiter-v1` a été ajoutée à cette règle,
+dans le périmètre de publication approuvé. Aucune protection cloud modifiée.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :
