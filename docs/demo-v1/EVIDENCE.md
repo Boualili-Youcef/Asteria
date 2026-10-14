@@ -13,7 +13,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Quotas actuels du projet source | OpenRC fourni, mot de passe non hérité par la session de travail | NON VÉRIFIÉ, aucune mutation cloud permise sur cette base |
 | Intégrité des archives T04 locales | sha256sum --check --quiet, runtime et Terraform | deux catalogues valides ; aucune restauration démontrée |
 | Baseline logicielle | venv existant, trois suites pytest | 5 Identity + 5 Orders + 6 Worker réussis avant ajouts |
-| Validation des payloads et dette publication | trois tests Orders ajoutés | total applicatif : 19 réussis ; panne Redis après persistance produit 500 avec écriture déjà effectuée |
+| Validation, dette publication et readiness | quatre tests Orders ajoutés | total applicatif : 20 ; publication après persistance peut échouer ; readiness Redis en refus de connexion attendue sous 2 s |
 | Garde-fous de livraison | unittest + rendu Helm réel | sept tests, dont mauvais cluster, artefact invalide, ancien workflow sans E2E et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
@@ -100,6 +100,21 @@ Le build suivant a révélé que les versions minimales OpenSSL `3.5.8-r0`
 `3.5.9-r0`, `libuuid` `2.42.3-r1`. Ces versions disponibles sont désormais
 épinglées. Les paquets retirés d'un dépôt stable peuvent bloquer un futur
 rebuild ; l'image publiée par digest reste l'artefact promu, sans reconstruction.
+
+Le run `38608110872` a ensuite passé tests, build, scan et smoke : zéro
+HIGH/CRITICAL détecté. Son artefact commit/digest a été vérifié. Le pull local
+GHCR a été refusé avec le credential disponible, sans élargissement de scope
+ni conservation de token. Un gate métier réel a donc été ajouté sur le runner
+déjà authentifié, avant émission de l'artefact promouvable. Le consommateur
+refuse les anciens runs ne comportant pas ce gate réussi.
+
+Le premier gate métier CI (`38609992239`) a persisté/archivé la commande, puis
+a échoué sur le délai de readiness après arrêt Redis. L'inspection du client
+installé `redis-py 8.0.1` confirme dix retries avec attente progressive par
+défaut. La vérification Redis de readiness impose désormais zéro retry ; un
+test avec un port loopback réservé mais non écouté exige 503 en moins de 2 s.
+La publication métier conserve sa politique existante ; l'absence d'outbox
+reste visible. La nouvelle image doit repasser tout le gate.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :

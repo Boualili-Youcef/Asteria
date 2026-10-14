@@ -1,6 +1,8 @@
 from decimal import Decimal
 from fastapi.testclient import TestClient
 from app import main
+import socket
+import time
 
 
 def test_invalid_order_never_writes_or_publishes(monkeypatch):
@@ -35,3 +37,16 @@ def test_publish_failure_documents_existing_nontransactional_gap(monkeypatch):
     with TestClient(main.app, raise_server_exceptions=False) as client:
         assert client.post('/api/v1/orders', json={'customer_id': 'demo', 'amount': '1'}).status_code == 500
     assert len(persisted) == 1  # Existing ASIS-009: commit precedes publication.
+
+
+def test_readiness_fails_promptly_when_redis_refuses_connection(monkeypatch):
+    monkeypatch.setattr(main, 'check_postgres', lambda: {'database': 'synthetic'})
+    # Reserve a loopback port without listening: the OS refuses connections.
+    with socket.socket() as reserved:
+        reserved.bind(('127.0.0.1', 0))
+        monkeypatch.setenv('REDIS_HOST', '127.0.0.1')
+        monkeypatch.setenv('REDIS_PORT', str(reserved.getsockname()[1]))
+        start = time.monotonic()
+        with TestClient(main.app) as client:
+            assert client.get('/ready').status_code == 503
+        assert time.monotonic() - start < 2
