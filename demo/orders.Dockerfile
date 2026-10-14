@@ -6,7 +6,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PIP_NO_CACHE_DIR=1
 
-RUN addgroup -g 10001 asteria \
+RUN apk add --no-cache --upgrade \
+      libcrypto3=3.5.8-r0 libssl3=3.5.8-r0 libuuid=2.42.3-r1 \
+    && addgroup -g 10001 asteria \
     && adduser -D -H -u 10001 -G asteria -s /sbin/nologin asteria
 
 WORKDIR /app

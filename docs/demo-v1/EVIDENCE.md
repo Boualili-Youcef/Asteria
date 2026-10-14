@@ -88,6 +88,13 @@ le code et les requirements applicatifs. Le Dockerfile Debian AS-IS reste
 inchangé. La compatibilité musl, le fonctionnel et le nouveau scan doivent
 réussir avant acceptation ; aucune exception de vulnérabilité n'est ajoutée.
 
+La première variante Alpine a construit correctement avec les dépendances
+Python existantes, mais le scan du run `38605759848` a encore refusé neuf
+signalements HIGH et zéro CRITICAL : OpenSSL `libcrypto3`/`libssl3` et `libuuid`.
+Les versions corrigées annoncées dans le rapport sont installées explicitement :
+`libcrypto3=3.5.8-r0`, `libssl3=3.5.8-r0`, `libuuid=2.42.3-r1`.
+Le gate reste identique. La candidate intermédiaire n'est pas promouvable.
+
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :
 
