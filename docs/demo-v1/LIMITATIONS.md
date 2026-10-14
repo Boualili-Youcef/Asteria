@@ -18,7 +18,8 @@ de production. Le registre [EVIDENCE](EVIDENCE.md) fait foi pour les résultats.
   changent uniquement une release séparée lors d'une activation future.
 - La supply chain proposée demande SBOM/provenance et un scan HIGH/CRITICAL.
   Elle n'est pas certifiée : aucune vérification Sigstore à l'admission, aucune
-  politique Kyverno de consommation, base Docker historique encore par tag.
+  politique Kyverno de consommation. La variante Demo utilise une base figée
+  par digest ; le Dockerfile historique, conservé, utilise encore un tag.
 - L'image candidate est publiée avant scan ; le run et son artefact constituent
   le gate de promotion, pas la seule présence d'une image dans GHCR.
 - Les métriques Prometheus sont partielles et volatiles. Les compteurs des

@@ -17,7 +17,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Garde-fous de livraison | unittest + rendu Helm réel | six tests réussis, dont mauvais cluster, artefact invalide et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
-| CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; premières tentatives bloquées à l'installation Trivy, sans rapport ni artefact de promotion ; correction en cours de validation |
+| CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; scan Trivy réel bloquant : 88 HIGH + 3 CRITICAL dans Debian, 0 HIGH/CRITICAL Python ; variante minimale Demo en cours de validation |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
 | Site statique public | workflow Pages 38600626583, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; replay Docker présent ; contrôle visuel navigateur indisponible |
 
@@ -75,6 +75,18 @@ La relance Pages a ensuite réussi :
 [site publié](https://boualili-youcef.github.io/Asteria/). Le bundle est limité
 à quatre fichiers publics ; seule la branche de démo supplémentaire peut le
 publier, sans élargissement des accès au cloud.
+
+La relance CI a d'abord subi une erreur DNS GitHub `FinalizeArtifact:
+ENOTFOUND`, après réussite des tests. La tentative suivante a effectivement
+exécuté le scanner : **91 signalements par paquet/CVE** (88 HIGH, 3 CRITICAL),
+dont 44 sans version corrigée dans le rapport. Les trois CRITICAL concernent
+`perl-base` ; aucune HIGH/CRITICAL dans les dépendances Python détectées.
+La candidate `sha256:7d0c3f88c75b84803ce9e20fb0a1709b64d315ae5d10cff01aafc5df3d6658da`
+est refusée, sans artefact de promotion réussi. Une base Alpine officielle
+figée par digest est introduite dans `demo/orders.Dockerfile`, en conservant
+le code et les requirements applicatifs. Le Dockerfile Debian AS-IS reste
+inchangé. La compatibilité musl, le fonctionnel et le nouveau scan doivent
+réussir avant acceptation ; aucune exception de vulnérabilité n'est ajoutée.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :

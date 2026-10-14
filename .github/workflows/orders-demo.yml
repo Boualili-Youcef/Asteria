@@ -3,10 +3,10 @@ name: Orders demo release
 on:
   workflow_dispatch:
   pull_request:
-    paths: ['apps/orders-api/**', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
+    paths: ['apps/orders-api/**', 'demo/orders.Dockerfile', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
   push:
     branches: [demo/recruiter-v1]
-    paths: ['apps/orders-api/**', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
+    paths: ['apps/orders-api/**', 'demo/orders.Dockerfile', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
 
 permissions:
   contents: read
@@ -62,6 +62,7 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
         with:
           context: apps/orders-api
+          file: demo/orders.Dockerfile
           push: true
           tags: ghcr.io/boualili-youcef/asteria/orders-api:demo-${{ github.sha }}
           provenance: mode=max
