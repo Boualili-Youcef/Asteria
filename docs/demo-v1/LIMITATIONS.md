@@ -5,9 +5,9 @@ de production. Le registre [EVIDENCE](EVIDENCE.md) fait foi pour les résultats.
 
 - Le second compte OpenStack est inaccessible et hors périmètre. Les preuves
   T05–T07 sont historiques ; leurs capacités ne sont pas supposées disponibles.
-- Les quotas source actuels nécessitent une session OpenStack authentifiée et
-  concordante avec les cinq instances du state. Aucun dimensionnement nouveau
-  n'est approuvé à partir des seuls anciens quotas.
+- Les quotas source ont été reconfirmés par la collecte du propriétaire :
+  9/10 vCPU et 17/20 Gio, 5/8 instances. Cette marge Nova ne constitue pas
+  une réservation de ressources Kubernetes pour la démo.
 - Un control plane unique, PostgreSQL et Redis uniques ne constituent pas de
   HA. Les archives existantes ne prouvent ni restauration ni RPO/RTO ni DR.
 - Les tests unitaires simulent les dépendances. Les tests du rollback simulent
@@ -26,6 +26,10 @@ de production. Le registre [EVIDENCE](EVIDENCE.md) fait foi pour les résultats.
   processus peuvent repartir à zéro ; aucun SLO de parcours n'est démontré.
 - L'application conserve l'absence d'authentification métier, d'outbox et de
   DLQ. Les tests rendent ces limites visibles sans les corriger en silence.
+- Le scénario CI suspend Redis en conservant son réseau. La disparition du
+  nom DNS lors d'un arrêt complet du conteneur Alpine a dépassé le budget HTTP
+  du test ; ce cas reste à instrumenter. Le timeout socket et l'absence de
+  retry ne bornent pas toute résolution DNS.
 - Le namespace, PSA et RBAC ne suffisent pas à démontrer l'isolation réseau.
   Les refus inter-namespaces restent à tester avant données synthétiques K3s.
 - La présentation publique est statique. Ses boutons explorent les preuves et

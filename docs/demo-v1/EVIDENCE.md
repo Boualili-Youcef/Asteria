@@ -10,7 +10,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Source K3s sain à la lecture | SSH bastion ; kubectl get nodes/deployments, 14 octobre vers 15:38 UTC | 3/3 Ready, K3s v1.36.2+k3s1 ; APIs, Worker, Redis, Prometheus/Grafana disponibles |
 | Image historique Orders encore exécutée | image du Deployment source | `docker.io/asteria/orders-api:m13`, aucun digest Demo observé |
 | Ressources observées | metrics-server source | mémoire 951/650/1589 Mi lors du premier passage ; voir audit D0 pour CPU et bastion |
-| Quotas actuels du projet source | OpenRC fourni, mot de passe non hérité par la session de travail | NON VÉRIFIÉ, aucune mutation cloud permise sur cette base |
+| Identité et quotas du projet source | script openstack-read.py, sortie transmise par le propriétaire | identité par token et cinq IDs concordants ; cinq VM ACTIVE, 5/8 instances, 9/10 vCPU, 17408/20480 MiB RAM |
 | Intégrité des archives T04 locales | sha256sum --check --quiet, runtime et Terraform | deux catalogues valides ; aucune restauration démontrée |
 | Baseline logicielle | venv existant, trois suites pytest | 5 Identity + 5 Orders + 6 Worker réussis avant ajouts |
 | Validation, dette publication et readiness | quatre tests Orders ajoutés | total applicatif : 20 ; publication après persistance peut échouer ; readiness Redis en refus de connexion attendue sous 2 s |
@@ -20,6 +20,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; scan Trivy réel bloquant : 88 HIGH + 3 CRITICAL dans Debian, 0 HIGH/CRITICAL Python ; variante minimale Demo en cours de validation |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
 | Site statique public | workflow Pages 38600626583, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; replay Docker présent ; contrôle visuel navigateur indisponible |
+| Santé source finale | lecture SSH, 17:57 UTC | cinq services VM actifs et NTP=yes ; PostgreSQL prêt ; trois APIs /ready=200 ; Prometheus prêt, huit targets UP, compteurs Orders/Worker à 1 |
 
 ## Commandes exécutées et reproduction
 
@@ -41,9 +42,13 @@ python3 -m http.server 4175 --bind 127.0.0.1 --directory /tmp/asteria-demo-site
 
 L'utilisation directe des ClusterIP depuis le bastion n'a pas abouti ; ces
 adresses ne doivent pas être présumées routables hors cluster. Les contrôles
-complémentaires avec port-forward ont été interrompus par la coupure du VPN.
-La readiness métier actuelle et les compteurs Prometheus restent donc non
-vérifiés ; la disponibilité des Deployments ne les remplace pas.
+complémentaires avec port-forward ont d'abord été interrompus par la coupure
+du VPN. Après réactivation, ils ont réussi, sans écriture métier :
+[collecte source](../../demo/evidence/source-audit-20261014.json),
+[collecte Kubernetes](../../demo/evidence/kubernetes-audit-20261014.json).
+L'identité/les quotas ont été confirmés séparément par le propriétaire :
+[sortie neutralisée](../../demo/evidence/openstack-audit-20261014.json).
+La readiness et les compteurs ne prouvent pas un nouveau parcours métier cloud.
 
 Les catalogues SHA-256 T04 privés ont été vérifiés en lecture sans publier
 state, dumps, clés, IP ni endpoints. Les actions CI ont été résolues depuis les
@@ -115,6 +120,15 @@ défaut. La vérification Redis de readiness impose désormais zéro retry ; un
 test avec un port loopback réservé mais non écouté exige 503 en moins de 2 s.
 La publication métier conserve sa politique existante ; l'absence d'outbox
 reste visible. La nouvelle image doit repasser tout le gate.
+
+L'arrêt complet du conteneur Redis a encore dépassé le délai HTTP dans la
+variante Alpine, malgré le retry de readiness désactivé. Le délai de résolution
+DNS n'est pas borné par le timeout socket ; sa responsabilité exacte reste à
+instrumenter, sans déclaration de correction. Le scénario CI retenu suspend
+le processus Redis en conservant son réseau, puis le reprend : dépendance
+réellement non répondante, DNS de service conservé. Le rapport indique ce
+mode de panne. Le cas de disparition DNS reste une limite distincte et n'est
+pas présenté comme validé.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :

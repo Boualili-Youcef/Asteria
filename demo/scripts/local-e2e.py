@@ -137,12 +137,18 @@ def main():
 
         order_roundtrip()
         report['checks'].append('order_persisted_and_matching_notification_archived')
-        docker('stop', '--time', '3', redis)
-        until(lambda: request(orders_port, 'ready')[0] == 503)
-        if request(orders_port, 'health')[0] != 200:
-            raise RuntimeError('Liveness unexpectedly depends on Redis')
-        report['checks'].append('redis_failure_readiness_503_liveness_200')
-        docker('start', redis)
+        # Keep the service address/DNS while making Redis unresponsive. This
+        # models a hung dependency; removing a Docker container also removes
+        # its service discovery entry, which is a different failure scenario.
+        report['fault_mode'] = 'redis_process_paused_network_preserved'
+        docker('pause', redis)
+        try:
+            until(lambda: request(orders_port, 'ready')[0] == 503)
+            if request(orders_port, 'health')[0] != 200:
+                raise RuntimeError('Liveness unexpectedly depends on Redis')
+            report['checks'].append('redis_failure_readiness_503_liveness_200')
+        finally:
+            docker('unpause', redis)
         until(lambda: request(orders_port, 'ready')[0] == 200)
         order_roundtrip()
         until(lambda: 'asteria_notifications_processed_total 2.0' in request(worker_port, 'metrics')[1])
