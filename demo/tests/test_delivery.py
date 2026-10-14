@@ -53,6 +53,15 @@ class DeliveryTests(unittest.TestCase):
                 promote.Target('explicit', 'expected', 'demo')
         self.assertTrue(all(c.args[0][0] == 'kubectl' for c in run.call_args_list))
 
+    def test_successful_legacy_ci_without_functional_gate_is_rejected(self):
+        data = self.release()
+        info = {'conclusion': 'success', 'head_sha': data['commit'],
+                'path': '.github/workflows/orders-demo.yml',
+                'repository': {'full_name': promote.REPOSITORY}}
+        with patch.object(promote, 'run', side_effect=[json.dumps(info), json.dumps({'jobs': []})]):
+            with self.assertRaises(ValueError):
+                promote.verify_ci(data)
+
     @unittest.skipUnless(__import__('shutil').which('helm'), 'Helm is not installed on this test runner')
     def test_chart_preserves_default_and_renders_digest_without_tag(self):
         chart = str(ROOT / 'k8s/current-state/orders-api/chart')

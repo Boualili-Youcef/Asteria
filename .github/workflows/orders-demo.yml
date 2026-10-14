@@ -99,6 +99,18 @@ jobs:
           curl --fail --silent http://127.0.0.1:18080/health
           curl --fail --silent http://127.0.0.1:18080/metrics | grep asteria_service_info
           test "$(curl --silent --output /dev/null --write-out '%{http_code}' http://127.0.0.1:18080/ready)" = 503
+      - name: Synthetic Orders event flow
+        env:
+          IMAGE: ghcr.io/boualili-youcef/asteria/orders-api@${{ steps.image.outputs.digest }}
+        run: |
+          docker build --tag asteria/notifications-worker:demo-test apps/notifications-worker
+          docker pull postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
+          docker pull redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+          python3 demo/scripts/local-e2e.py --orders-image "$IMAGE" \
+            --worker-image asteria/notifications-worker:demo-test \
+            --postgres-image postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4 \
+            --redis-image redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005 \
+            --output e2e-result.json
       - name: Record promotion artifact
         env:
           DIGEST: ${{ steps.image.outputs.digest }}
@@ -117,6 +129,13 @@ jobs:
           name: orders-release-${{ github.run_id }}
           path: release.json
           if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        if: always()
+        with:
+          name: orders-functional-${{ github.run_id }}
+          path: e2e-result.json
+          if-no-files-found: warn
           retention-days: 14
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()

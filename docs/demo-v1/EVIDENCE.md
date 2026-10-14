@@ -14,7 +14,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Intégrité des archives T04 locales | sha256sum --check --quiet, runtime et Terraform | deux catalogues valides ; aucune restauration démontrée |
 | Baseline logicielle | venv existant, trois suites pytest | 5 Identity + 5 Orders + 6 Worker réussis avant ajouts |
 | Validation des payloads et dette publication | trois tests Orders ajoutés | total applicatif : 19 réussis ; panne Redis après persistance produit 500 avec écriture déjà effectuée |
-| Garde-fous de livraison | unittest + rendu Helm réel | six tests réussis, dont mauvais cluster, artefact invalide et rollback simulé ; pas une preuve de panne K3s |
+| Garde-fous de livraison | unittest + rendu Helm réel | sept tests, dont mauvais cluster, artefact invalide, ancien workflow sans E2E et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
 | CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; scan Trivy réel bloquant : 88 HIGH + 3 CRITICAL dans Debian, 0 HIGH/CRITICAL Python ; variante minimale Demo en cours de validation |

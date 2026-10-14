@@ -47,6 +47,12 @@ def verify_ci(data):
             or info.get('path') != '.github/workflows/orders-demo.yml'
             or info.get('repository', {}).get('full_name') != REPOSITORY):
         raise ValueError('CI identity, commit or success does not match')
+    jobs = json.loads(run(['gh', 'api', f'repos/{REPOSITORY}/actions/runs/{data["run_id"]}/jobs']))
+    required = {'Synthetic Orders event flow', 'Scan the published candidate before allowing promotion'}
+    release_jobs = [job for job in jobs.get('jobs', []) if job.get('name') == 'release']
+    if not any(required.issubset({step['name'] for step in job.get('steps', [])
+                                 if step.get('conclusion') == 'success'}) for job in release_jobs):
+        raise ValueError('Successful scan and real functional gate are required')
     with tempfile.TemporaryDirectory(prefix='asteria-ci-') as directory:
         run(['gh', 'run', 'download', data['run_id'], '--repo', REPOSITORY,
              '--name', 'orders-release-' + data['run_id'], '--dir', directory])
