@@ -5,7 +5,7 @@ on:
   pull_request:
     paths: ['apps/orders-api/**', 'demo/orders.Dockerfile', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
   push:
-    branches: [demo/recruiter-v1]
+    branches: [main, demo/recruiter-v1]
     paths: ['apps/orders-api/**', 'demo/orders.Dockerfile', 'demo/scripts/**', 'demo/tests/**', 'demo/values.yaml', 'demo/manifests/**', 'k8s/current-state/orders-api/chart/**', '.github/workflows/orders-demo.yml']
 
 permissions:

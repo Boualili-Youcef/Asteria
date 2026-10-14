@@ -1,13 +1,8 @@
-name: orders-api tests build and push
+# M15 reference workflow. The active delivery path is orders-demo.yml.
+name: Orders legacy build (manual)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-    paths:
-      - apps/orders-api/**
-      - .github/workflows/orders-api.yml
 
 permissions:
   contents: read

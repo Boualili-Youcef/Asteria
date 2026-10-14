@@ -37,7 +37,7 @@ piloter toutes les missions suivantes.
 
 **Livrables :**
 
-- `README.md`, `PROJECT_CONTEXT.md`, `AGENTS.md` et
+- `README.md`, `PROJECT_CONTEXT.md` et
   `PHASE_1_BACKLOG.md` ;
 - arborescence initiale des domaines ;
 - dépôt Git local sur la branche `main` ;

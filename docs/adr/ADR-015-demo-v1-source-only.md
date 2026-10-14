@@ -91,6 +91,15 @@ un rollback Helm, puis une vérification du digest précédent et de `/ready`.
 Un rollback non vérifié bloque la démo live. L'effacement des données et du
 namespace reste une opération séparée, jamais automatique dans le cloud.
 
+## Publication du dépôt
+
+Les workflows Orders Demo et du site acceptent `main` et `demo/recruiter-v1`.
+Le workflow Orders M15 reste consultable et déclenchable manuellement pour
+comparaison ; il ne publie plus automatiquement une seconde image lors des
+pushes sur `main`. Les consignes de travail locales sont exclues du suivi Git.
+La publication conserve les identifiants des commits référencés par les images
+et les preuves ; aucun historique n'est réécrit.
+
 ## Validation observée
 
 Le parcours K3s est exécuté : promotion 36,323 s, drill et rollback 209,505 s,

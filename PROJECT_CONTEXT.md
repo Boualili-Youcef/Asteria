@@ -225,7 +225,6 @@ En cas de contradiction, appliquer cet ordre :
 3. décisions explicitement approuvées dans ce fichier ;
 4. `PHASE_2_BACKLOG.md`, ordre et critères de transformation ;
 5. `archi.md` et les preuves M00-M16 pour le point de départ AS-IS ;
-6. `contexte.md`, matériau de cadrage initial non normatif.
 
 Toute contradiction doit être signalée et résolue dans la documentation avant
 qu'elle n'affecte une ressource réelle.

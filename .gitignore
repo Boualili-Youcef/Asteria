@@ -38,6 +38,11 @@ __pycache__/
 venv/
 
 # Systèmes et éditeurs
+.agents/
+.codex/
+/AGENTS.md
+/contexte.md
+/ASTERIA_CODEX_DEMO_V1.md
 .DS_Store
 Thumbs.db
 *.swp

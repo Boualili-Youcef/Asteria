@@ -3,7 +3,7 @@ name: Demo evidence site
 on:
   workflow_dispatch:
   push:
-    branches: [demo/recruiter-v1]
+    branches: [main, demo/recruiter-v1]
     paths: ['demo/web/**', 'demo/evidence/**', '.github/workflows/demo-site.yml']
 
 permissions:
