@@ -18,11 +18,11 @@ Pour le reconstruire sur son propre poste :
 
 2. Ouvrir `http://127.0.0.1:4175`. Aucun accès cloud ni credential n'est requis.
 3. 00:00–00:45 : expliquer le contexte, les cinq VM historiques et les contraintes.
-4. 00:45–01:45 : onglet Deploy, tests exécutés et CI préparée, puis code du workflow.
+4. 00:45–01:45 : onglet Deploy, tests exécutés, CI réussie, digest et code du workflow.
 5. 01:45–02:45 : montrer le contrôle du digest et de l'identité du cluster dans
    le script, en distinguant le code testé et l'exécution K3s non validée.
-6. 02:45–03:45 : onglet Applications, preuve fonctionnelle Docker lorsqu'elle
-   existe dans EVIDENCE ; expliquer la correspondance order_id et archive.
+6. 02:45–03:45 : onglet Applications, replay du test Docker CI en 10,445 s ;
+   expliquer la correspondance order_id et archive à partir de son JSON.
 7. 03:45–05:00 : Reliability, refus testés, rollback simulé et validation live
    restante. Terminer sur les preuves et les limites.
 

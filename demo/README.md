@@ -17,6 +17,12 @@ de données séparées et la validation des NetworkPolicies. Ne pas l'appliquer
 sur un contexte déduit implicitement. Le rôle Helm peut lire les Secrets de
 démo ; ne jamais le réutiliser dans un namespace historique.
 
+La CI complète réussie est enregistrée dans `evidence/orders-release.json`,
+`evidence/ci-verification-20261014.json` et `evidence/ci-functional-20261014.json`.
+GHCR est privé : le credential opérateur essayé n'a pas permis le pull. Un
+accès de registre dédié en lecture ou une décision de publication de l'image
+doit précéder l'activation K3s ; aucun credential CI n'est copié dans le cluster.
+
 Le site se construit avec une allowlist de quatre fichiers publics. Héberger
 uniquement le répertoire produit, jamais la racine du dépôt ou `.secrets`.
 Sur GitHub Pages, utiliser le bundle comme artefact statique, avec les permissions

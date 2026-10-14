@@ -17,7 +17,8 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Garde-fous de livraison | unittest + rendu Helm réel | sept tests, dont mauvais cluster, artefact invalide, ancien workflow sans E2E et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
-| CI, scan, SBOM/provenance | nouveau workflow orders-demo.yml | tests et build réussis ; scan Trivy réel bloquant : 88 HIGH + 3 CRITICAL dans Debian, 0 HIGH/CRITICAL Python ; variante minimale Demo en cours de validation |
+| CI complète | run 38614847670, commit 640fd0396d5669aec5fe028fe639d503a453ddc1 | PASS : tests, build unique, scan 0 HIGH/CRITICAL, smoke et parcours métier réel sur le digest produit |
+| Parcours métier de l'image CI | rapport orders-functional-38614847670 | PASS en 10,445 s ; Redis suspendu avec réseau conservé, ready 503/health 200, reprise, seconde archive et nettoyage |
 | Promotion / rollback K3s | promote.py, opérateur privé | NON EXÉCUTÉ ; bootstrap, autorisation et données isolées requis |
 | Site statique public | workflow Pages 38600626583, puis requêtes HTTP | PASS : page et evidence.json en HTTP 200 ; replay Docker présent ; contrôle visuel navigateur indisponible |
 | Santé source finale | lecture SSH, 17:57 UTC | cinq services VM actifs et NTP=yes ; PostgreSQL prêt ; trois APIs /ready=200 ; Prometheus prêt, huit targets UP, compteurs Orders/Worker à 1 |
@@ -129,6 +130,37 @@ le processus Redis en conservant son réseau, puis le reprend : dépendance
 réellement non répondante, DNS de service conservé. Le rapport indique ce
 mode de panne. Le cas de disparition DNS reste une limite distincte et n'est
 pas présenté comme validé.
+
+## Release finale vérifiée
+
+Le [run 38614847670](https://github.com/Boualili-Youcef/Asteria/actions/runs/38614847670)
+a passé tous les gates, dont le parcours métier réel avec le digest candidat.
+L'artefact a été revérifié par `promote.verify_ci` : identité du workflow,
+commit, scan réussi, étape E2E réussie et JSON canonique identique.
+
+```text
+commit : 640fd0396d5669aec5fe028fe639d503a453ddc1
+image  : ghcr.io/boualili-youcef/asteria/orders-api
+digest : sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa
+```
+
+| Mesure | Durée réelle |
+|---|---:|
+| job tests | 23 s |
+| build/publication Orders | 19 s |
+| étape scan | 10 s |
+| étape smoke | 8 s |
+| étape E2E avec préparation de ses images | 26 s |
+| test métier proprement dit, avec nettoyage | 10,445 s |
+| promotion / rollback K3s | non exécutés, aucune durée annoncée |
+
+Preuves : [release](../../demo/evidence/orders-release.json),
+[résumé CI/scan](../../demo/evidence/ci-verification-20261014.json),
+[test métier sur le digest CI](../../demo/evidence/ci-functional-20261014.json).
+Le résultat zéro HIGH/CRITICAL est limité aux sévérités recherchées et à la
+base de vulnérabilités de cette exécution. Les 91 signalements initiaux portent
+sur la candidate reconstruite avec le Dockerfile Debian historique, pas sur
+un scan des images M13 effectivement en cours dans le cluster source.
 
 Reproduction du test local (Redis doit être déjà chargé ; l'ID d'image du
 rapport peut être utilisé sur le même poste) :

@@ -29,8 +29,8 @@ fetch('evidence.json').then(response => {
     const replay = data.functional_replay;
     const descriptions = {
       order_persisted_and_matching_notification_archived: 'La commande synthétique a été persistée dans PostgreSQL et son événement retrouvé dans l’archive du worker.',
-      redis_failure_readiness_503_liveness_200: 'Redis a été arrêté dans le seul environnement de test : Orders a retourné 503 sur /ready et 200 sur /health.',
-      redis_recovered_second_order_archived: 'Après redémarrage de Redis, /ready est revenu à 200 et une deuxième commande a été archivée.',
+      redis_failure_readiness_503_liveness_200: replay.fault_mode === 'redis_process_paused_network_preserved' ? 'Le processus Redis a été suspendu en conservant son réseau : Orders a retourné 503 sur /ready et 200 sur /health.' : 'Redis a été arrêté dans le seul environnement de test : Orders a retourné 503 sur /ready et 200 sur /health.',
+      redis_recovered_second_order_archived: 'Après reprise de Redis, /ready est revenu à 200 et une deuxième commande a été archivée.',
       worker_counter_2: 'Le compteur du worker indique deux événements traités. Les conteneurs et le réseau du test ont ensuite été nettoyés.'
     };
     let index = 0;
@@ -39,6 +39,7 @@ fetch('evidence.json').then(response => {
       document.getElementById('replay-description').textContent = descriptions[replay.checks[index]] || 'Consulter le résultat JSON.';
     }
     document.getElementById('functional-replay').hidden = false;
+    document.getElementById('replay-environment').textContent = 'REPLAY D’UNE EXÉCUTION RÉELLE · ' + replay.context_label;
     document.getElementById('replay-date').textContent = `${replay.date} · durée totale mesurée : ${replay.duration_seconds} s`;
     document.getElementById('replay-proof').href = repo + replay.proof;
     document.getElementById('replay-next').addEventListener('click', () => { index = (index + 1) % replay.checks.length; showReplay(); });

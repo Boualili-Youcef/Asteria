@@ -4,7 +4,8 @@
 - Propriétaire : Youcef Boualili
 - Branche : `demo/recruiter-v1`, référence de départ `fe8596b`
 - Décision : [ADR-015](../../adr/ADR-015-demo-v1-source-only.md)
-- Statut : D0 source inventorié, D1 tests locaux validés, D2/D3 code testé localement,
+- Statut : D0 source inventorié, D1 tests locaux et CI validés, D2 build/digest/gate métier CI validés,
+  D3 rollback simulé seulement,
   D4 observations partielles, D5 site statique publié et contrôlé en HTTP,
   D6 documentation livrée. Démonstration live non validée.
 
@@ -22,6 +23,9 @@ Faits : cluster source lu à 3/3 Ready, images M13 toujours utilisées, 20 tests
 applicatifs et sept tests de livraison réussis, chart validé, backups locaux T04
 intègres. Les commandes, dates, écarts et limites sont dans
 [EVIDENCE](../../demo-v1/EVIDENCE.md) et [D0](../../demo-v1/00-audit-and-constraints.md).
+La release CI finale `38614847670` passe scan HIGH/CRITICAL, smoke et parcours
+métier sur son digest en 10,445 s, nettoyage compris. L'artefact canonique et
+le commit ont été revérifiés ; aucun déploiement K3s n'est déduit de ce résultat.
 
 Hypothèses non acquises : isolation effective du namespace,
 pull GHCR depuis les workers, authentification opérateur bornée, santé métier

@@ -1,0 +1,61 @@
+{
+  "run_id": "38614847670",
+  "commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
+  "image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa",
+  "conclusion": "success",
+  "url": "https://github.com/Boualili-Youcef/Asteria/actions/runs/38614847670",
+  "jobs": [
+    {
+      "name": "test",
+      "duration_seconds": 23.0,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Test Orders and operator guards",
+          "duration_seconds": 1.0,
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "release",
+      "duration_seconds": 79.0,
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Build once and publish immutable candidate",
+          "duration_seconds": 19.0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Scan the published candidate before allowing promotion",
+          "duration_seconds": 10.0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Smoke test immutable image",
+          "duration_seconds": 8.0,
+          "conclusion": "success"
+        },
+        {
+          "name": "Synthetic Orders event flow",
+          "duration_seconds": 26.0,
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "scan": {
+    "scanner": "Trivy 0.76.0",
+    "severity_filter": [
+      "HIGH",
+      "CRITICAL"
+    ],
+    "high_findings": 0,
+    "critical_findings": 0,
+    "targets": [
+      "alpine",
+      "python-pkg"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "environment": "local-docker",
+  "date": "2026-10-14T18:25:42.102417+00:00",
+  "source_commit": "640fd0396d5669aec5fe028fe639d503a453ddc1",
+  "cloud_mutations": false,
+  "kubernetes_rollback": "not_tested",
+  "status": "passed",
+  "checks": [
+    "order_persisted_and_matching_notification_archived",
+    "redis_failure_readiness_503_liveness_200",
+    "redis_recovered_second_order_archived",
+    "worker_counter_2"
+  ],
+  "application_image_ids": {
+    "orders-api": "sha256:9a06bdef0ac36cdbc0d7d4bf9e27a011e44711c50856dc0aa7d845c56f4e1bea",
+    "notifications-worker": "sha256:c6b8f4eff9fe55b1aa136668868b16936036daf062cbfb67765e91dedb21ee49"
+  },
+  "source_files_match_images": true,
+  "postgres_image": "postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4",
+  "redis_image": "redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005",
+  "fault_mode": "redis_process_paused_network_preserved",
+  "cleanup": "passed",
+  "duration_seconds": 10.445,
+  "execution_context": "github-actions",
+  "run_id": "38614847670",
+  "orders_image": "ghcr.io/boualili-youcef/asteria/orders-api@sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa"
+}

@@ -38,19 +38,22 @@ if release_path.is_file():
         raise SystemExit('Invalid recorded release')
     data['steps'][1].update(status='CI ET SCAN RÉUSSIS · DIGEST ENREGISTRÉ', short_status='VÉRIFIÉ',
         description='Image construite et publiée par le run ' + release['run_id'] +
-        ', pour le commit ' + release['commit'] + '. Tests, scan HIGH/CRITICAL et smoke réussis. SBOM et provenance attachés ; ils ne sont pas encore vérifiés à l’admission K3s.',
+        ', pour le commit ' + release['commit'] + '. Tests, scan HIGH/CRITICAL, smoke et parcours métier Docker réussis. SBOM et provenance produits ; ils ne sont pas encore vérifiés à l’admission K3s.',
         command=release['image'] + '@' + release['digest'],
         proof='https://github.com/Boualili-Youcef/Asteria/actions/runs/' + release['run_id'])
-report_path = ROOT / 'demo/evidence/local-e2e-20261014-r2.json'
+ci_report = ROOT / 'demo/evidence/ci-functional-20261014.json'
+report_path = ci_report if ci_report.is_file() else ROOT / 'demo/evidence/local-e2e-20261014-r2.json'
 if report_path.is_file():
     report = json.loads(report_path.read_text())
     if report.get('status') == 'passed' and report.get('cleanup') == 'passed' and report.get('cloud_mutations') is False:
         data['functional_replay'] = {
             'date': report['date'], 'duration_seconds': report['duration_seconds'],
-            'checks': report['checks'], 'proof': str(report_path.relative_to(ROOT))}
+            'checks': report['checks'], 'proof': str(report_path.relative_to(ROOT)),
+            'fault_mode': report.get('fault_mode', 'redis_container_stopped'),
+            'context_label': 'DOCKER SUR GITHUB ACTIONS' if report_path == ci_report else 'DOCKER LOCAL'}
         step = data['steps'][3]
         step.update(status='TEST DOCKER RÉEL RÉUSSI', short_status='VÉRIFIÉ',
-                    description='Le test Docker a créé puis relu une commande et retrouvé son événement archivé par le worker. Une panne Redis a produit /ready=503 et /health=200, puis une deuxième commande a été archivée après reprise. Nettoyage vérifié. Durée totale : ' + str(report['duration_seconds']) + ' s. Ce résultat ne démontre pas un déploiement K3s.',
+                    description='Le test Docker a créé puis relu une commande et retrouvé son événement archivé par le worker. Redis rendu non répondant a produit /ready=503 et /health=200, puis une deuxième commande a été archivée après reprise. Nettoyage vérifié. Durée totale : ' + str(report['duration_seconds']) + ' s. Ce résultat ne démontre pas un déploiement K3s.',
                     proof=str(report_path.relative_to(ROOT)))
 output.mkdir(parents=True, exist_ok=True)
 for name in ['index.html', 'style.css', 'app.js']:
