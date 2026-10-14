@@ -1,5 +1,12 @@
 # Asteria
 
+> **Démo en 5 minutes** — [Parcours guidé](docs/demo-v1/DEMO-5-MINUTES.md) ·
+> [Preuves datées](docs/demo-v1/EVIDENCE.md) · [Architecture](docs/demo-v1/ARCHITECTURE.md) ·
+> [Limites](docs/demo-v1/LIMITATIONS.md).
+> Une présentation statique autonome se construit depuis `demo/web/`.
+> Le parcours live K3s et son rollback restent à valider ; aucun lien hébergé
+> n'est annoncé avant publication réelle.
+
 Asteria est un projet de Platform Engineering qui simule l'évolution de
 l'architecture d'une PME SaaS européenne d'environ 100 à 500 employés.
 
@@ -11,7 +18,7 @@ risques, les objectifs de service et des preuves de migration.
 ## Documents de pilotage
 
 - `PROJECT_CONTEXT.md` : contexte, périmètre et décisions structurantes ;
-- `AGENTS.md` : règles de travail applicables aux humains et agents IA ;
+- `AGENTS.md` : règles de contribution et d'exploitation ;
 - `PHASE_1_BACKLOG.md` : missions chronologiques de la phase 1 ;
 - `PHASE_2_BACKLOG.md` : missions chronologiques de transformation TO-BE ;
 - `archi.md` : diagramme Mermaid de l'architecture AS-IS validée ;
@@ -40,7 +47,10 @@ pare-feu hôte compensatoire. T06 fournit GitHub SSO, WebAuthn par session, RBAC
 certificats courts, accès SSH/Kubernetes/PostgreSQL audités et break-glass
 conservé. T07 ajoute sur le staging K3s/Cilium/Hubble, default-deny, RBAC
 minimal, Pod Security Admission, quotas et stockage synthétique validé. Le
-source K3s/Flannel reste intact ; la prochaine mission est T08.
+source K3s/Flannel reste intact. Ces résultats sont historiques : le second
+compte n'est désormais plus accessible. L'extension Demo v1 utilise seulement
+le source ou Docker local ; T08–T18 nécessitent une requalification des
+dépendances selon [ADR-015](docs/adr/ADR-015-demo-v1-source-only.md).
 
 Parcours de lecture recommandé :
 

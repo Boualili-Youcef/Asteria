@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Asteria : une chaîne de livraison Orders vérifiable, ses preuves et ses limites, sur un lab OpenStack privé.">
+  <title>Asteria — Une release, des preuves</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip" href="#main">Aller au contenu</a>
+  <header>
+    <a href="#overview" class="brand" aria-label="Asteria, accueil"><span class="brand-mark">a<span>✳</span></span> ASTERIA<span class="brand-sub">PLATFORM / LAB</span></a>
+    <a class="source-link" href="https://github.com/Boualili-Youcef/Asteria">Explorer le dépôt <span aria-hidden="true">↗</span></a>
+  </header>
+  <main id="main">
+    <div class="eyebrow">PLATFORM ENGINEERING · OPENSTACK · KUBERNETES</div>
+    <section class="hero" id="overview">
+      <div><h1>De la release<br>à la <em>preuve.</em></h1>
+        <p class="intro">Construire une image ne suffit pas. Asteria rend visible le chemin jusqu'au service exécuté, aux vérifications et au retour arrière.</p>
+        <p class="context">Un lab privé pour une PME SaaS simulée. Des ressources limitées, des choix explicables, des résultats que l'on peut examiner.</p>
+        <a class="primary" href="#deploy">Explorer le parcours <span aria-hidden="true">↓</span></a>
+      </div>
+      <aside class="snapshot" aria-label="Périmètre de la démonstration">
+        <div class="snapshot-top"><span class="dot"></span> PREUVES DATÉES <span>DEMO V1</span></div>
+        <div class="snapshot-value">01<span>parcours prioritaire</span></div>
+        <p>Orders → PostgreSQL → Redis → Worker</p>
+        <div class="snapshot-line"><span>Infrastructure source</span><strong id="source-state">À vérifier</strong></div>
+        <div class="snapshot-line"><span>Promotion & rollback K3s</span><strong class="pending">À valider</strong></div>
+        <div class="snapshot-line"><span>Accès visiteur</span><strong>Statique / sans privilège</strong></div>
+      </aside>
+    </section>
+    <div class="mode-notice"><strong>Présentation autonome.</strong> Ce site consulte uniquement des fichiers publics. Il ne contacte pas le cluster et ne déclenche aucun déploiement. Une observation datée n'est pas un état live.</div>
+    <nav class="tabs" aria-label="Explorer la plateforme">
+      <a href="#deploy" data-tab="deploy">01 <span>Deploy</span></a>
+      <a href="#applications" data-tab="applications">02 <span>Applications</span></a>
+      <a href="#observe" data-tab="observe">03 <span>Observe</span></a>
+      <a href="#reliability" data-tab="reliability">04 <span>Reliability</span></a>
+    </nav>
+    <section class="panel" id="deploy" aria-labelledby="deploy-title">
+      <div class="section-heading"><div><div class="eyebrow">01 / LA CHAÎNE DE LIVRAISON</div><h2 id="deploy-title">Une version identifiable.<br>À chaque étape.</h2></div><p>Le parcours cible relie le commit à un digest immuable. Ouvrez une étape pour distinguer le code prêt de son exécution réellement prouvée.</p></div>
+      <div class="delivery-layout"><ol class="steps" id="steps" aria-label="Étapes du parcours"></ol><article class="detail" aria-live="polite"><div class="detail-index" id="step-number"></div><span class="badge" id="step-status"></span><h3 id="step-title"></h3><p id="step-description"></p><pre id="step-command"></pre><a id="step-proof" class="text-link">Examiner la preuve ↗</a></article></div>
+    </section>
+    <section class="panel" id="applications" aria-labelledby="apps-title" hidden>
+      <div class="section-heading"><div><div class="eyebrow">02 / LE PARCOURS MÉTIER</div><h2 id="apps-title">Une commande.<br>Deux écritures vérifiables.</h2></div><p>Des services Python existants, conservés à leur point d'intégration. Le test synthétique contrôle l'identifiant de la commande jusque dans l'archive du worker.</p></div>
+      <div class="flow" aria-label="Flux : Orders persiste dans PostgreSQL, publie dans Redis, le worker archive dans PostgreSQL"><div><small>API</small><strong>Orders</strong><code>POST /api/v1/orders</code></div><span>→</span><div><small>PERSISTANCE</small><strong>PostgreSQL</strong><code>orders.id</code></div><span>→</span><div><small>ÉVÉNEMENT</small><strong>Redis</strong><code>order.created</code></div><span>→</span><div><small>CONSOMMATION</small><strong>Worker</strong><code>archive PostgreSQL</code></div></div>
+      <article class="recorded-run" id="functional-replay" hidden><div class="eyebrow">REPLAY D'UNE EXÉCUTION RÉELLE · DOCKER LOCAL</div><h3 id="replay-title"></h3><p id="replay-date"></p><p id="replay-description" aria-live="polite"></p><button type="button" id="replay-next">Étape suivante →</button> <a class="text-link" id="replay-proof">Lire l'enregistrement JSON ↗</a><p>Lecture d'un résultat enregistré. Ce bouton n'exécute aucun test et ne contacte aucune infrastructure.</p></article>
+      <div class="two-columns"><article><h3>Le test qui compte</h3><p>Créer une commande synthétique, la relire, puis retrouver exactement son identifiant dans <code>processed_notifications</code>. Le test Docker s'exécute avec ses propres conteneurs et données.</p><a class="text-link" data-repo="demo/scripts/local-e2e.py">Lire le test de bout en bout ↗</a></article><article class="warning"><h3>Une dette visible : l'outbox</h3><p>Le commit PostgreSQL précède la publication Redis. Une panne entre ces opérations peut laisser une commande sans événement. Cette limite ASIS-009 est testée, pas présentée comme corrigée.</p></article></div>
+    </section>
+    <section class="panel" id="observe" aria-labelledby="observe-title" hidden>
+      <div class="section-heading"><div><div class="eyebrow">03 / MESURER AVANT D'AFFIRMER</div><h2 id="observe-title">Des observations.<br>Leur date. Leur portée.</h2></div><p id="observed-at">Chargement des preuves datées…</p></div>
+      <div class="measures" id="measures"></div>
+      <div class="two-columns"><article><h3>Reproduire la mesure</h3><pre>sum(up)
+sum(asteria_orders_created_total)
+sum(asteria_notifications_processed_total)</pre><p>À interroger dans le Prometheus privé existant. Les compteurs sont locaux aux processus : ils ne constituent pas un journal durable.</p></article><article><h3>Pas de télémétrie privée dans le site</h3><p>Ces preuves sont exportées et neutralisées. La vitrine reste utilisable quand les VM sont arrêtées. Aucun dashboard interne, token ou endpoint d'administration n'est exposé.</p><a class="text-link" data-repo="docs/demo-v1/EVIDENCE.md">Consulter le registre des preuves ↗</a></article></div>
+    </section>
+    <section class="panel" id="reliability" aria-labelledby="reliability-title" hidden>
+      <div class="section-heading"><div><div class="eyebrow">04 / ÉCHOUER SOUS CONTRÔLE</div><h2 id="reliability-title">Le rollback doit<br>se vérifier aussi.</h2></div><p>Le scénario préparé change uniquement une readiness probe dans le namespace de démo. Sa validation réelle sur K3s reste un critère distinct.</p></div>
+      <div class="recovery"><span>Version saine</span><span>→</span><span>Probe invalide</span><span>→</span><span>Échec détecté</span><span>→</span><span>Rollback + /ready</span></div>
+      <div class="two-columns"><article><span class="badge">TESTS LOCAUX</span><h3>Garde-fous testés</h3><p>Mauvais cluster, dépôt inattendu et digest invalide sont refusés. Les tests simulent une erreur Helm ou de probe et exigent la vérification de l'image précédente. Ce sont des tests du script, pas une panne K3s observée.</p></article><article class="warning"><span class="badge">NON VALIDÉ SUR K3S</span><h3>La preuve live reste à produire</h3><p>Un déploiement et son rollback nécessitent un périmètre autorisé, des données synthétiques isolées et des droits bornés. Aucun succès n'est présumé. Le lab ne revendique ni HA, ni DR, ni exploitation de production.</p><a class="text-link" data-repo="docs/demo-v1/LIMITATIONS.md">Lire les limites ↗</a></article></div>
+    </section>
+    <section class="handoff"><div><div class="eyebrow">POUR ALLER PLUS LOIN</div><h2>Cinq minutes pour le voir.<br>Un dépôt pour le vérifier.</h2></div><div><a class="primary" data-repo="docs/demo-v1/DEMO-5-MINUTES.md">Ouvrir le parcours guidé ↗</a><a class="text-link" data-repo="docs/adr/ADR-015-demo-v1-source-only.md">Comprendre les arbitrages ↗</a></div></section>
+    <p id="load-error" role="alert" hidden>Les preuves n'ont pas pu être chargées. Aucun statut n'est déduit. Servez ce site depuis un hébergement HTTP statique.</p>
+  </main>
+  <footer><span>ASTERIA / YOUCEF BOUALILI</span><span>Lab privé. Preuves publiques. Limites explicites.</span></footer>
+</body>
+</html>

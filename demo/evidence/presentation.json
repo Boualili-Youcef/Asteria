@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "mode": "dated-evidence-not-live",
+  "source_state": "3/3 Ready · 14 oct. 2026",
+  "observed_at": "Observations du 14 octobre 2026. K3s via le bastion source ; tests logiciels exécutés localement. Aucune interrogation live depuis cette page.",
+  "steps": [
+    {"title":"Commit & tests","status":"TESTS LOCAUX EXÉCUTÉS","short_status":"VÉRIFIÉ","description":"19 tests applicatifs passent. Les contrôles de livraison valident aussi les refus de paramètres dangereux et le comportement du rollback simulé. Ils ne prouvent pas un déploiement Kubernetes.","command":"bash demo/scripts/test-offline.sh","proof":"docs/demo-v1/EVIDENCE.md"},
+    {"title":"Image & digest","status":"CI PRÉPARÉE · EXÉCUTION À VALIDER","short_status":"PRÉPARÉ","description":"Le nouveau workflow construit Orders une seule fois, publie dans GHCR, demande SBOM et provenance, scanne le digest puis émet release.json après les contrôles. Aucun digest Demo réussi n'est encore enregistré ici.","command":"GitHub Actions → Orders demo release → orders-release-RUN_ID","proof":".github/workflows/orders-demo.yml"},
+    {"title":"Promotion privée","status":"SCRIPT TESTÉ LOCALEMENT · K3S NON VALIDÉ","short_status":"À VALIDER","description":"L'opérateur choisit explicitement son contexte et les identités du cluster et du namespace. Le script exige une release saine par digest et compare l'artefact à une CI réussie. La création initiale est séparée.","command":"python3 demo/scripts/promote.py --help","proof":"demo/scripts/promote.py"},
+    {"title":"Parcours métier","status":"TEST SYNTHÉTIQUE PRÉPARÉ","short_status":"À VALIDER","description":"Le test Docker contrôle la persistance Orders et l'archive du même événement par le worker. Son résultat daté figure dans le registre lorsqu'il a réellement été exécuté. Aucun accès aux bases historiques.","command":"python3 demo/scripts/local-e2e.py --help","proof":"docs/demo-v1/EVIDENCE.md"},
+    {"title":"Échec & rollback","status":"SIMULATION DU SCRIPT TESTÉE · K3S NON VALIDÉ","short_status":"À VALIDER","description":"Une readiness volontairement invalide doit empêcher la nouvelle version de devenir disponible. Après échec, le script rétablit la révision précédente et vérifie image, rollout, /health, /ready et /metrics. L'exercice K3s reste à exécuter sur un périmètre autorisé.","command":"promote.py … --failure-drill --execute --evidence /chemin/prive/drill.jsonl","proof":"docs/demo-v1/DEMO-5-MINUTES.md"}
+  ],
+  "measures": [
+    {"value":"3/3","label":"Nœuds K3s Ready","note":"Source privé, lecture du 14 octobre 2026. Ce n'est pas une garantie de disponibilité."},
+    {"value":"19","label":"Tests applicatifs réussis","note":"5 Identity · 8 Orders · 6 Worker. Dépendances simulées dans les tests unitaires."},
+    {"value":"—","label":"Durée de rollback K3s","note":"Non mesurée. Le scénario est préparé et les gardes testés localement."}
+  ]
+}
