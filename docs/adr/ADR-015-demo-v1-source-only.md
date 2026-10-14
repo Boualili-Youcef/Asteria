@@ -58,7 +58,9 @@ Une identité dédiée en lecture reste l'alternative pour une application
 d'entreprise dont l'image doit rester privée ; un token personnel ou le token
 éphémère de la CI ne doit pas être transféré aux workers.
 
-Décision retenue le 14 octobre 2026 ; changement de visibilité **en attente**.
+Décision retenue et visibilité publique activée le 14 octobre 2026. Le
+manifeste anonyme et son digest ont été vérifiés depuis le poste et les deux
+workers ; le téléchargement complet sur le poste a réussi.
 Le package contient aussi des candidates rejetées : rendre le package public
 ne les rend pas promouvables. Seul le digest de l'artefact CI complet vérifié
 est retenu. La publication concerne toutes les versions de ce package et
@@ -71,6 +73,12 @@ sauvegarde restaurée et révision des ADR concernées. Demo v1 ne les remplace
 pas et ne démontre ni HA, ni DR, ni SLO entreprise.
 
 ## Arrêt, impact et rollback
+
+Le plan de [bootstrap synthétique](../demo-v1/BOOTSTRAP.md) propose une
+exception au chiffrement interne PostgreSQL/Redis pour des données factices
+jetables et un secret neuf. Cette exception n'est pas acquise : l'accord
+d'activation doit la mentionner explicitement, sinon préparer une variante TLS.
+Le namespace et les policies ne constituent pas un chiffrement.
 
 Les ajouts locaux sont réversibles par revert des commits Demo v1. Le chart
 conserve le tag `m13` par défaut. Les ressources proposées sont limitées à un

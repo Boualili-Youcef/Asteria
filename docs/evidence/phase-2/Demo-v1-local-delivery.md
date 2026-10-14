@@ -20,7 +20,7 @@ n'est déclaré globalement corrigé par cette livraison.
 ## Faits et hypothèses
 
 Faits : cluster source lu à 3/3 Ready, images M13 toujours utilisées, 20 tests
-applicatifs et sept tests de livraison réussis, chart validé, backups locaux T04
+applicatifs et dix tests de livraison réussis, chart validé, backups locaux T04
 intègres. Les commandes, dates, écarts et limites sont dans
 [EVIDENCE](../../demo-v1/EVIDENCE.md) et [D0](../../demo-v1/00-audit-and-constraints.md).
 La release CI finale `38614847670` passe scan HIGH/CRITICAL, smoke et parcours
@@ -81,8 +81,9 @@ restauration Kubernetes réelle n'est revendiquée.
 
 La branche/CI et le site sont publiés dans le périmètre approuvé. La CI complète
 est validée. Le choix d'un package Orders public est documenté dans ADR-015 ;
-le réglage GitHub et la preuve de téléchargement anonyme restent en attente.
-Préparer et faire approuver le bootstrap synthétique avec son impact précis,
-après réinventaire source.
+le réglage public est effectué, le manifeste anonyme est accessible depuis
+les deux workers et le téléchargement local complet a réussi.
+Le bootstrap synthétique est préparé dans `docs/demo-v1/BOOTSTRAP.md` et le
+générateur local ; son activation avec ce périmètre reste à approuver.
 La prochaine mission TO-BE reste T08 après requalification de ses dépendances.
 Demo v1 ne clôture pas T08–T18 et n'autorise pas leur exécution automatique.

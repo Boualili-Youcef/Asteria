@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "date": "2026-10-14T19:13:52.999803+00:00",
+  "environment": "source-and-operator",
+  "cloud_mutations": false,
+  "anonymous_full_pull_operator": {
+    "anonymous_pull": "pass",
+    "exit_code": 0,
+    "digest": "sha256:1f6372cbbf2a1534c29921ea860fda8055e1e465f77007dab93e101c659980aa"
+  },
+  "workers": {
+    "worker_01": {
+      "registry": {
+        "http": 200,
+        "digest_matches": true
+      },
+      "disk_available_bytes": 14164160512,
+      "cached_worker_images": [
+        {
+          "tags": [
+            "docker.io/asteria/notifications-worker:m13"
+          ],
+          "digests": []
+        }
+      ]
+    },
+    "worker_02": {
+      "registry": {
+        "http": 200,
+        "digest_matches": true
+      },
+      "disk_available_bytes": 13148372992,
+      "cached_worker_images": [
+        {
+          "tags": [
+            "docker.io/asteria/notifications-worker:m13"
+          ],
+          "digests": []
+        }
+      ]
+    }
+  },
+  "worker_cache": {
+    "worker_01": {
+      "worker_cache_matches_local_tested_image": false,
+      "image_id": "sha256:adda677a5cd48ae49d3a4c17f765c83a344d9844dedb79dfe6e23c3741fcd80a"
+    },
+    "worker_02": {
+      "worker_cache_matches_local_tested_image": false,
+      "image_id": "sha256:adda677a5cd48ae49d3a4c17f765c83a344d9844dedb79dfe6e23c3741fcd80a"
+    }
+  },
+  "worker_source_comparison": {
+    "worker_sources_match_repository": true,
+    "worker_requirements_match_repository": true,
+    "historical_business_data_accessed": false,
+    "cloud_mutations": false
+  },
+  "source_preflight": {
+    "observed_at": "2026-10-14T18:51:18.850882+00:00",
+    "nodes_ready": 3,
+    "node_count": 3,
+    "historical_deployments_available": true,
+    "demo_namespace_exists": false,
+    "dns_pods_matching_policy": 1,
+    "network_policy_disabled_in_service": false,
+    "network_policy_disabled_in_config": false
+  },
+  "not_proven": [
+    "complete_layer_pull_on_workers",
+    "network_policy_enforcement",
+    "kubernetes_bootstrap",
+    "live_promotion_and_rollback"
+  ]
+}

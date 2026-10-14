@@ -36,10 +36,11 @@ Ctrl+C ; aucun nettoyage cloud n'est nécessaire.
 
 Choix retenu : téléchargement public de l'image Orders par digest, sans token
 de registre sur le poste ni dans le cluster. L'accès cloud demeure privé.
-Au dernier contrôle, le package est encore privé ; ce choix n'est pas une
-preuve de publication effective.
+Le 14 octobre 2026, le manifeste et son digest ont été vérifiés anonymement
+depuis le poste et les deux workers ; le téléchargement complet sur le poste
+a réussi. Les pulls de couches sur les workers restent à valider.
 
-Le propriétaire ouvre [le package Orders](https://github.com/users/Boualili-Youcef/packages/container/package/asteria%2Forders-api),
+Le réglage effectué par le propriétaire : ouvrir [le package Orders](https://github.com/users/Boualili-Youcef/packages/container/package/asteria%2Forders-api),
 puis **Package settings → Change visibility → Public**, et confirme le nom du
 package demandé par GitHub. Ce réglage concerne toutes ses versions, y compris
 les candidates refusées ; celles-ci restent exclues de toute promotion.
@@ -87,6 +88,9 @@ Si le cluster n'est pas joignable, afficher « live indisponible » et utiliser
 la présentation autonome. Aucune reconstruction automatique.
 
 ### 2. Après une CI réussie et un bootstrap expressément approuvé
+
+Le périmètre initial, ses manifests et les commandes sont dans le
+[plan de bootstrap](BOOTSTRAP.md). Aucun composant de ce plan n’est encore installé.
 
 Renseigner les variables locales depuis l'environnement autorisé. Elles sont
 volontairement absentes du dépôt : `DEMO_CONTEXT`, `DEMO_CLUSTER_UID`,

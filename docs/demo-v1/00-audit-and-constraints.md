@@ -19,7 +19,7 @@ But : préparer la démo Orders sans altérer l'AS-IS.
 | Accès Kubernetes via bastion | CONFIRMÉ | lecture des Pods autorisée ; droits de promotion bornés pas encore provisionnés |
 | Tests existants | CONFIRMÉ | 5 Identity + 5 Orders + 6 Worker passent avec le venv existant |
 | Outils | CONFIRMÉ | Docker, Helm, kubectl, Terraform, OpenStack, gh ; Flutter/Dart absents |
-| Session GitHub | CONFIRMÉ | gh authentifié ; publication non encore exécutée |
+| Session GitHub | CONFIRMÉ | gh authentifié ; branche, CI GHCR et site Pages publiés |
 | Archives T04 locales | CONFIRMÉ | catalogue présent ; intégrité et restauration à revalider avant mutation |
 | Digest GHCR → Pod Demo | NON VÉRIFIÉ | chemin à créer ; ne pas confondre image publiée et exécutée |
 | Readiness des APIs et PostgreSQL source | CONFIRMÉ | trois APIs HTTP 200, pg_isready réussi sur la VM dédiée |
@@ -35,9 +35,10 @@ le cluster. Bastion : 961 Mi au total, 548 Mi disponibles ; racine 50 % occupée
 
 Les quotas sont reconfirmés par la collecte authentifiée du propriétaire,
 distincte des lectures SSH effectuées directement. La restauration des backups,
-le pull GHCR depuis les nœuds et l'isolation du nouveau namespace nécessitent
-des contrôles complémentaires. Le pull local GHCR est refusé avec le credential
-disponible ; un accès registre en lecture reste à préparer pour K3s.
+les pulls complets GHCR depuis les nœuds et l'isolation du nouveau namespace
+nécessitent des contrôles complémentaires. Le package Orders est maintenant
+public : téléchargement anonyme complet sur le poste réussi, manifeste et
+digest accessibles anonymement depuis les deux workers (HTTP 200).
 Aucun résultat fonctionnel cloud ni rollback n'est déduit
 des tests unitaires. Le VPN peut être coupé pendant les travaux locaux.
 
@@ -49,7 +50,8 @@ sans réécrire les preuves ni reprendre automatiquement la migration complète.
 La présence d'un state source ne suffit pas à identifier une session Keystone.
 L'identité et les ressources source ont maintenant été vérifiées. Les mutations
 restent bloquées tant que l'isolation des données, les droits de promotion,
-l'accès au registre et l'accord d'activation ne sont pas acquis.
+et l'accord d'activation ne sont pas acquis. Le bootstrap est préparé dans
+[BOOTSTRAP](BOOTSTRAP.md), sans application cloud.
 
 ## Reproduction et suite
 
@@ -64,4 +66,5 @@ une validation K3s. Aucune nouvelle VM ni aucun contact du second projet.
 Collectes finales :
 [OpenStack, terminal propriétaire](../../demo/evidence/openstack-audit-20261014.json),
 [VM et services, lecture SSH](../../demo/evidence/source-audit-20261014.json),
-[Kubernetes](../../demo/evidence/kubernetes-audit-20261014.json).
+[Kubernetes](../../demo/evidence/kubernetes-audit-20261014.json),
+[registre et préflight avant bootstrap](../../demo/evidence/registry-audit-20261014.json).

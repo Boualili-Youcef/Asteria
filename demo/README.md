@@ -12,17 +12,17 @@ Une extension Orders isolée ; voir [ADR-015](../docs/adr/ADR-015-demo-v1-source
   et Redis préchargées par digest, aucune VM ni base historique utilisée.
 
 Le bootstrap Kubernetes proposé dans `manifests/isolation.yaml` n'est pas
-appliqué et ne suffit pas encore à activer le live : il manque le provisionnement
-de données séparées et la validation des NetworkPolicies. Ne pas l'appliquer
+appliqué. Le générateur `scripts/prepare-bootstrap.py` prépare les données
+synthétiques séparées et les NetworkPolicies ; leurs validations K3s restent requises. Ne pas l'appliquer
 sur un contexte déduit implicitement. Le rôle Helm peut lire les Secrets de
 démo ; ne jamais le réutiliser dans un namespace historique.
 
 La CI complète réussie est enregistrée dans `evidence/orders-release.json`,
 `evidence/ci-verification-20261014.json` et `evidence/ci-functional-20261014.json`.
-Le package GHCR est encore privé : le credential opérateur essayé n'a pas
-permis le pull. Le choix retenu pour le portfolio est de rendre public le seul
-package Orders ; son activation et son contrôle anonyme sont en attente, voir
-le [runbook](../docs/demo-v1/DEMO-5-MINUTES.md#accès-au-registre-pour-le-portfolio).
+Le package Orders est public : manifeste anonyme et digest vérifiés depuis
+le poste et les deux workers ; téléchargement complet réussi sur le poste.
+Aucun token de registre n'est requis. Le [plan de bootstrap](../docs/demo-v1/BOOTSTRAP.md)
+prépare quatre services séparés et leurs tests ; il n'a pas encore été appliqué.
 Aucun credential CI n'est copié dans le cluster.
 
 Le site se construit avec une allowlist de quatre fichiers publics. Héberger

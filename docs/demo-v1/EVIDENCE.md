@@ -14,7 +14,7 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 | Intégrité des archives T04 locales | sha256sum --check --quiet, runtime et Terraform | deux catalogues valides ; aucune restauration démontrée |
 | Baseline logicielle | venv existant, trois suites pytest | 5 Identity + 5 Orders + 6 Worker réussis avant ajouts |
 | Validation, dette publication et readiness | quatre tests Orders ajoutés | total applicatif : 20 ; publication après persistance peut échouer ; readiness Redis en refus de connexion attendue sous 2 s |
-| Garde-fous de livraison | unittest + rendu Helm réel | sept tests, dont mauvais cluster, artefact invalide, ancien workflow sans E2E et rollback simulé ; pas une preuve de panne K3s |
+| Garde-fous de livraison | unittest + rendu Helm réel | dix tests, dont protection du bundle privé, mauvais cluster, artefact invalide, ancien workflow sans E2E et rollback simulé ; pas une preuve de panne K3s |
 | Compatibilité chart | helm lint et helm template | tag m13 par défaut ; image@digest sans suffixe tag en mode Demo ; digest incorrect refusé |
 | Parcours métier Docker | script local-e2e.py, sources des images comparées au dépôt | PASS en 12,228 s à 16:31 UTC ; commande persistée/relue, événement archivé, Redis arrêté → ready 503/health 200, reprise et seconde archive, compteur worker 2, nettoyage PASS |
 | CI complète | run 38614847670, commit 640fd0396d5669aec5fe028fe639d503a453ddc1 | PASS : tests, build unique, scan 0 HIGH/CRITICAL, smoke et parcours métier réel sur le digest produit |
@@ -25,12 +25,22 @@ Demo CI ni aucun digest déployé sur K3s n'est annoncé sans résultat observab
 
 ## Commandes exécutées et reproduction
 
-Accès au registre : choix public retenu pour le seul package Orders dans
-ADR-015 ; modification GitHub encore en attente. Le contrôle du digest final
-avec `docker --config <répertoire temporaire vide> pull <image@digest>` retourne
-1, accès refusé, le 14 octobre 2026. Aucun credential n'a été utilisé pour ce
-contrôle. Le runbook prépare la répétition du test après changement de
-visibilité. La réussite de la CI authentifiée ne prouve pas un pull anonyme.
+Accès au registre : visibilité publique activée par le propriétaire. Après un
+premier délai dépassé, le téléchargement anonyme complet du digest retenu a
+réussi sur le poste. Les deux workers ont reçu HTTP 200 et le digest attendu
+pour le manifeste, sans credential. Ce contrôle ne télécharge pas leurs couches.
+Voir la [collecte neutralisée](../../demo/evidence/registry-audit-20261014.json).
+Le namespace de démo reste absent, les trois nœuds Ready, et aucun workload
+historique n'a été modifié.
+
+Le [bootstrap](BOOTSTRAP.md) est préparé, sans mutation cloud. Les tests
+locaux du générateur vérifient modes privés, refus d'écrasement et refus de
+sortie dans le dépôt, y compris via symlink. PostgreSQL a passé SELECT 1 avec
+les restrictions de runtime proposées ; la première configuration de socket
+a échoué à l'initialisation et a été corrigée en conservant le socket par
+défaut de l'image officielle. Le test Redis avec le digest CI n'est pas encore
+achevé localement : son téléchargement a dépassé le budget du premier essai.
+Le nettoyage du test a été vérifié par son label, aucun conteneur restant.
 
 ```bash
 git status --short
