@@ -4,7 +4,7 @@
 - Propriétaire : Youcef Boualili
 - Branche : `demo/recruiter-v1`, référence de départ `fe8596b`
 - Décision : [ADR-015](../../adr/ADR-015-demo-v1-source-only.md)
-- Statut : D0 partiel, D1 tests locaux validés, D2/D3 code testé localement,
+- Statut : D0 source inventorié, D1 tests locaux validés, D2/D3 code testé localement,
   D4 observations partielles, D5 site statique publié et contrôlé en HTTP,
   D6 documentation livrée. Démonstration live non validée.
 
@@ -18,15 +18,17 @@ n'est déclaré globalement corrigé par cette livraison.
 
 ## Faits et hypothèses
 
-Faits : cluster source lu à 3/3 Ready, images M13 toujours utilisées, 19 tests
-applicatifs et six tests de livraison réussis, chart validé, backups locaux T04
+Faits : cluster source lu à 3/3 Ready, images M13 toujours utilisées, 20 tests
+applicatifs et sept tests de livraison réussis, chart validé, backups locaux T04
 intègres. Les commandes, dates, écarts et limites sont dans
 [EVIDENCE](../../demo-v1/EVIDENCE.md) et [D0](../../demo-v1/00-audit-and-constraints.md).
 
-Hypothèses non acquises : quotas Nova actuels, isolation effective du namespace,
+Hypothèses non acquises : isolation effective du namespace,
 pull GHCR depuis les workers, authentification opérateur bornée, santé métier
-source et restauration des backups. Le VPN a été coupé avant la fin des
-lectures complémentaires ; aucun succès n'en est déduit.
+et restauration des backups. Les lectures complémentaires ont réussi après
+réactivation du VPN : readiness HTTP 200, cinq services actifs et NTP synchronisé.
+Les quotas sont confirmés par la sortie authentifiée du propriétaire, distincte
+des mesures effectuées directement via SSH.
 
 ## Décisions et périmètre
 

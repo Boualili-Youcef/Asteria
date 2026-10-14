@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-14T18:01:50.184673+00:00",
+  "environment": "source",
+  "state_vm_count": 5,
+  "openstack_identity": "not_verified",
+  "quotas": "not_verified",
+  "cloud_mutations": false,
+  "runtime": {
+    "node_count": 3,
+    "nodes_ready": 3,
+    "versions": [
+      "v1.36.2+k3s1"
+    ],
+    "deployments": [
+      {
+        "namespace": "ingress-nginx",
+        "name": "ingress-nginx-controller",
+        "desired": 2,
+        "available": 2,
+        "images": [
+          "registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1"
+        ]
+      },
+      {
+        "namespace": "ingress-nginx",
+        "name": "m10-test-endpoint",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "busybox:1.37.0"
+        ]
+      },
+      {
+        "namespace": "monitoring",
+        "name": "grafana",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "grafana/grafana:13.1.0"
+        ]
+      },
+      {
+        "namespace": "monitoring",
+        "name": "prometheus",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "prom/prometheus:v3.12.0-distroless"
+        ]
+      },
+      {
+        "namespace": "shared",
+        "name": "redis-shared",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "redis:8.8.0-alpine3.23"
+        ]
+      },
+      {
+        "namespace": "team-identity",
+        "name": "identity-api",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "docker.io/asteria/identity-api:m13"
+        ]
+      },
+      {
+        "namespace": "team-notifications",
+        "name": "notifications-worker",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "docker.io/asteria/notifications-worker:m13"
+        ]
+      },
+      {
+        "namespace": "team-orders",
+        "name": "orders-api",
+        "desired": 1,
+        "available": 1,
+        "images": [
+          "docker.io/asteria/orders-api:m13"
+        ]
+      }
+    ],
+    "node_usage": [
+      {
+        "cpu": "159697676n",
+        "memory": "977832Ki"
+      },
+      {
+        "cpu": "88604436n",
+        "memory": "675000Ki"
+      },
+      {
+        "cpu": "180757611n",
+        "memory": "1638628Ki"
+      }
+    ],
+    "bastion_memory": [
+      "961",
+      "395",
+      "216",
+      "1",
+      "521",
+      "566"
+    ],
+    "bastion_root_disk": [
+      "9283444736",
+      "4613935104",
+      "4652732416",
+      "50%"
+    ]
+  }
+}

@@ -1,0 +1,67 @@
+{
+  "date": "2026-10-14T17:57:32.342416+00:00",
+  "environment": "source",
+  "mutations": false,
+  "hosts": {
+    "bastion": {
+      "memory_total_kib": 984680,
+      "memory_available_kib": 564432,
+      "root_disk_total_bytes": 9283444736,
+      "root_disk_free_bytes": 4652740608,
+      "ntp_synchronized": "yes",
+      "service_active": true
+    },
+    "control_plane": {
+      "memory_total_kib": 4009980,
+      "memory_available_kib": 2873852,
+      "root_disk_total_bytes": 19682557952,
+      "root_disk_free_bytes": 14639964160,
+      "ntp_synchronized": "yes",
+      "service_active": true
+    },
+    "worker_01": {
+      "memory_total_kib": 4009984,
+      "memory_available_kib": 3081604,
+      "root_disk_total_bytes": 19682557952,
+      "root_disk_free_bytes": 14166372352,
+      "ntp_synchronized": "yes",
+      "service_active": true
+    },
+    "worker_02": {
+      "memory_total_kib": 4009984,
+      "memory_available_kib": 2516108,
+      "root_disk_total_bytes": 19682557952,
+      "root_disk_free_bytes": 13148422144,
+      "ntp_synchronized": "yes",
+      "service_active": true
+    },
+    "postgres": {
+      "memory_total_kib": 4009984,
+      "memory_available_kib": 3452936,
+      "root_disk_total_bytes": 19682557952,
+      "root_disk_free_bytes": 15945859072,
+      "ntp_synchronized": "yes",
+      "service_active": true,
+      "postgres_ready": true
+    }
+  },
+  "services": {
+    "readiness": {
+      "orders-api": 200,
+      "identity-api": 200,
+      "notifications-worker": 200,
+      "prometheus": 200
+    },
+    "prometheus": {
+      "sum(up)": [
+        "8"
+      ],
+      "sum(asteria_orders_created_total)": [
+        "1"
+      ],
+      "sum(asteria_notifications_processed_total)": [
+        "1"
+      ]
+    }
+  }
+}

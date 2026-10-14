@@ -1,0 +1,17 @@
+{
+  "date": "2026-10-14",
+  "collection": "owner_terminal_output_from_demo/scripts/openstack-read.py",
+  "source_identity": "confirmed_by_token_and_all_source_instance_ids",
+  "source_state_instances": 5,
+  "project_instances": 5,
+  "server_statuses": ["ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE", "ACTIVE"],
+  "mutations": false,
+  "limits": {
+    "totalCoresUsed": 9,
+    "totalRAMUsed": 17408,
+    "totalInstancesUsed": 5,
+    "maxTotalCores": 10,
+    "maxTotalInstances": 8,
+    "maxTotalRAMSize": 20480
+  }
+}
