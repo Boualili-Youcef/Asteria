@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "environment": "local-docker",
+  "date": "2026-10-14T16:31:54.016393+00:00",
+  "source_commit": "fe8596b1f1827dde958e9183cbbd1ce9c2768bd3",
+  "cloud_mutations": false,
+  "kubernetes_rollback": "not_tested",
+  "status": "passed",
+  "checks": [
+    "order_persisted_and_matching_notification_archived",
+    "redis_failure_readiness_503_liveness_200",
+    "redis_recovered_second_order_archived",
+    "worker_counter_2"
+  ],
+  "application_image_ids": {
+    "orders-api": "sha256:b79aad2eff0d2571384f8a1fcc3244319f82661c6dfb0fd3d8019be84a1eded8",
+    "notifications-worker": "sha256:fc044a19dc2a6f6e846fffd67138dab53f04ddfad4f2e1f914d0e77e83418a27"
+  },
+  "source_files_match_images": true,
+  "postgres_image": "postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4",
+  "redis_image": "sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241",
+  "cleanup": "passed",
+  "duration_seconds": 12.228
+}
