@@ -49,3 +49,10 @@ Thumbs.db
 *.swo
 .idea/
 .vscode/
+
+# Platform console build and browser artifacts
+demo/web/node_modules/
+demo/web/dist/
+demo/web/test-results/
+demo/web/playwright-report/
+/public-site/

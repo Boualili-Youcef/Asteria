@@ -29,6 +29,12 @@ accessible. Les preuves T05–T07 restent historiques ; les dépendances de
 T08–T18 doivent être requalifiées avant reprise. Cette extension ne termine
 aucune mission T08–T18 et n'autorise aucune mutation cloud implicite.
 
+Extension Platform Console validée localement le 15 octobre 2026 :
+[ADR-016](docs/adr/ADR-016-platform-console-static.md) et
+[preuve locale](docs/evidence/phase-2/Platform-console-local-delivery.md).
+Console statique et playground Docker opt-in ; aucun nouveau déploiement distant,
+aucune mutation cloud et aucun changement de statut T08–T18.
+
 | Mission | Intitulé | Statut | Dépend de |
 |---|---|---|---|
 | T00 | Initialiser la transformation TO-BE | Terminée | M16 |

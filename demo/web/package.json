@@ -1,0 +1,46 @@
+{
+  "name": "asteria-platform-console",
+  "private": true,
+  "version": "2.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "ingest": "tsx scripts/ingest.ts",
+    "dev": "npm run ingest && vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run",
+    "build": "npm run ingest && npm run typecheck && vite build && tsx scripts/audit-dist.ts",
+    "preview": "vite preview --host 127.0.0.1 --port 4175",
+    "test:e2e": "playwright test",
+    "format": "prettier --write src scripts tests *.ts *.js index.html README.md"
+  },
+  "dependencies": {
+    "@xyflow/react": "12.10.0",
+    "lucide-react": "0.468.0",
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "zod": "3.24.4"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.10.2",
+    "@eslint/js": "9.39.4",
+    "@playwright/test": "1.56.1",
+    "@testing-library/react": "16.3.0",
+    "@types/node": "22.15.30",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "@vitejs/plugin-react": "4.7.0",
+    "eslint": "9.39.4",
+    "eslint-plugin-react-hooks": "5.2.0",
+    "jsdom": "26.1.0",
+    "prettier": "3.6.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.2",
+    "vite": "6.4.4",
+    "vitest": "4.1.11"
+  }
+}

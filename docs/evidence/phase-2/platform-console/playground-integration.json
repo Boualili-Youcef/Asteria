@@ -1,0 +1,18 @@
+{
+  "mode": "local-docker-live",
+  "status": "passed",
+  "orders_created": 2,
+  "matching_sql_archives": 2,
+  "redis_down": {
+    "health": 200,
+    "ready": 503
+  },
+  "redis_recovered": true,
+  "read_only_role_refused_write": true,
+  "origin_rejected": true,
+  "data_ports_unpublished": true,
+  "synthetic_ids": [
+    "e5020b3b-26c7-4658-9a1a-adca3b74c829",
+    "7ee1d7ca-4b62-4d1c-946e-46dedd608808"
+  ]
+}

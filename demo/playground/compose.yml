@@ -1,0 +1,104 @@
+name: asteria-playground
+services:
+  postgres:
+    image: postgres@sha256:0ea6700a3b4f0ae6ce746519073558aed4d88a79d8d07622a9a644946c7319c4
+    environment:
+      POSTGRES_DB: playground
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${PG_ADMIN_PASSWORD:?Run start.sh first}
+      APP_PASSWORD: ${APP_PASSWORD:?Run start.sh first}
+      READ_PASSWORD: ${READ_PASSWORD:?Run start.sh first}
+    volumes:
+      - playground-data:/var/lib/postgresql/data
+      - ./init-db.sh:/docker-entrypoint-initdb.d/01-playground.sh:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d playground"]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    networks: [lab]
+  redis:
+    image: redis@sha256:9d317178eceac8454a2284a9e6df2466b93c745529947f0cd42a0fa9609d7005
+    command: [redis-server, --save, "", --appendonly, "no"]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 2s
+      retries: 20
+    networks: [lab]
+  orders:
+    image: ${ORDERS_IMAGE:?Run start.sh first}
+    environment: &app-env
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: playground
+      POSTGRES_USER: asteria_app
+      POSTGRES_PASSWORD: ${APP_PASSWORD}
+      POSTGRES_CONNECT_TIMEOUT: "2"
+      REDIS_HOST: redis
+      REDIS_CONNECT_TIMEOUT: "1"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck: &app-health
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/ready",timeout=4)',
+        ]
+      interval: 4s
+      timeout: 5s
+      retries: 15
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [lab]
+  worker:
+    build: ../../apps/notifications-worker
+    environment: *app-env
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    healthcheck: *app-health
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [lab]
+  console:
+    build:
+      context: .
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DATABASE: playground
+      POSTGRES_USER: asteria_reader
+      POSTGRES_PASSWORD: ${READ_PASSWORD}
+    ports: ["127.0.0.1:4180:8080"]
+    depends_on:
+      orders: { condition: service_healthy }
+      worker: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/api/health",timeout=3)',
+        ]
+      interval: 4s
+      timeout: 4s
+      retries: 15
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    networks: [lab, frontend]
+networks:
+  lab:
+    internal: true
+  frontend:
+    driver: bridge
+volumes:
+  playground-data:

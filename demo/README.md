@@ -1,5 +1,11 @@
 # Une release, des preuves
 
+La **Platform Console** propose une vue d’ensemble, un graphe interactif,
+Delivery Journey, trois incidents enregistrés, les trois services et les 22
+constats de l’audit. La visite guidée démarre via `?tour=1`. Le
+[guide frontend](web/README.md) explique le développement, les vérifications
+et la publication GitHub Pages. Elle fonctionne sans VPN et sans cloud.
+
 [Ouvrir la démo publique](https://boualili-youcef.github.io/Asteria/) ·
 [Guide opérateur](RUNBOOK.md) ·
 [Enregistrement K3s](evidence/kubernetes-flow-20261014.json)
@@ -80,3 +86,10 @@ Pour auditer les détails : [preuve de mission](../docs/evidence/phase-2/Demo-v1
 et [décision d'architecture](../docs/adr/ADR-015-demo-v1-source-only.md).
 Les anciens audits restent disponibles en arrière-plan ; leur lecture n'est
 pas nécessaire pour comprendre ou présenter ce parcours.
+
+## Expérimenter sans OpenStack
+
+Le [playground Docker local](playground/README.md) utilise les vraies applications
+Orders et Notifications, PostgreSQL et Redis. Il crée des commandes synthétiques
+et observe leurs archives sur localhost. Ce mode **Local Docker live** est
+distinct des preuves K3s enregistrées et ne fait pas partie du site statique.

@@ -1,0 +1,16 @@
+{
+  "mode": "local-docker-live",
+  "observed_at": 1792069784.9419749,
+  "services": {
+    "orders": {
+      "health": 200,
+      "ready": 200
+    },
+    "worker": {
+      "health": 200,
+      "ready": 200
+    }
+  },
+  "orders_count": 8,
+  "archives_count": 8
+}

@@ -7,12 +7,25 @@ Le [parcours court](README.md) suffit pour une présentation. Ce guide sert
 
 ```bash
 bash demo/scripts/test-offline.sh
-python3 demo/web/build.py --output /tmp/asteria-site-preview
-python3 -m http.server 4175 --bind 127.0.0.1 --directory /tmp/asteria-site-preview
+# Node 22.22+ et npm requis pour la console React :
+cd demo/web
+npm ci
+npm run build
+npm run preview
+# http://127.0.0.1:4175/Asteria/
 ```
 
-Le répertoire de sortie doit être neuf ou vide. Ouvrir localhost:4175 puis
-arrêter le serveur par Ctrl+C. Seuls quatre fichiers publics sont produits.
+Export vers un dossier neuf, depuis la racine du dépôt :
+
+```bash
+python3 demo/web/build.py --output /tmp/asteria-site-preview
+```
+
+Le répertoire de sortie doit être neuf ou vide. Arrêter le preview par Ctrl+C.
+La console remplace l’ancien bundle de quatre fichiers : seuls HTML, JS, CSS,
+SVG, polices et licences sont exportés, avec les preuves filtrées compilées.
+Le préfixe `/Asteria/` est obligatoire. Voir le
+[guide de la console](web/README.md) pour tests, publication et contrat de données.
 
 ## Préparer l'accès privé
 

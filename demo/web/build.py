@@ -1,90 +1,38 @@
 #!/usr/bin/env python3
-"""Build a static-only public bundle from an explicit allowlist."""
+"""Build the React console, audit its public allowlist, then export to a fresh directory."""
 import argparse
-import json
-import re
+import os
 from pathlib import Path
 import shutil
+import subprocess
 
-ROOT = Path(__file__).absolute().parents[2]
-parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--output', required=True, type=Path)
-args = parser.parse_args()
-output = args.output.absolute()
-if output.exists() and any(output.iterdir()):
-    raise SystemExit('Refusing to overwrite a nonempty output directory')
-if output == ROOT or output in ROOT.parents:
-    raise SystemExit('Refusing to write over repository or parent directory')
-data = json.loads((ROOT / 'demo/evidence/presentation.json').read_text())
-if data.get('mode') != 'dated-evidence-not-live':
-    raise SystemExit('A public evidence mode must be explicit')
-baseline_path = ROOT / 'demo/evidence/scan-baseline-20261014.json'
-if baseline_path.is_file():
-    baseline = json.loads(baseline_path.read_text())
-    data['baseline_scan'] = {key: baseline[key] for key in
-                            ['high_findings', 'critical_findings', 'run_id', 'promotion']}
-    data['steps'][1].update(status='SCAN RÉEL · BASE HISTORIQUE REFUSÉE', short_status='BLOQUÉ',
-        description='Le scan CI de la base Debian historique a bloqué la candidate : 88 signalements HIGH et 3 CRITICAL. Aucun artefact de promotion réussi n’a été émis. La variante Demo minimale doit passer le même contrôle avant acceptation.',
-        command='Trivy image --severity HIGH,CRITICAL --exit-code 1',
-        proof='https://github.com/Boualili-Youcef/Asteria/actions/runs/' + baseline['run_id'])
-release_path = ROOT / 'demo/evidence/orders-release.json'
-if release_path.is_file():
-    release = json.loads(release_path.read_text())
-    if (release.get('schema') != 1 or
-            release.get('image') != 'ghcr.io/boualili-youcef/asteria/orders-api' or
-            not re.fullmatch('sha256:[0-9a-f]{64}', release.get('digest', '')) or
-            not re.fullmatch('[0-9a-f]{40}', release.get('commit', '')) or
-            not re.fullmatch('[1-9][0-9]*', release.get('run_id', ''))):
-        raise SystemExit('Invalid recorded release')
-    data['steps'][1].update(status='CI ET SCAN RÉUSSIS · DIGEST ENREGISTRÉ', short_status='VÉRIFIÉ',
-        description='Image construite et publiée par le run ' + release['run_id'] +
-        ', pour le commit ' + release['commit'] + '. Tests, scan HIGH/CRITICAL, smoke et parcours métier Docker réussis. SBOM et provenance produits ; ils ne sont pas encore vérifiés à l’admission K3s.',
-        command=release['image'] + '@' + release['digest'],
-        proof='https://github.com/Boualili-Youcef/Asteria/actions/runs/' + release['run_id'])
-ci_report = ROOT / 'demo/evidence/ci-functional-20261014.json'
-report_path = ci_report if ci_report.is_file() else ROOT / 'demo/evidence/local-e2e-20261014-r2.json'
-if report_path.is_file():
-    report = json.loads(report_path.read_text())
-    if report.get('status') == 'passed' and report.get('cleanup') == 'passed' and report.get('cloud_mutations') is False:
-        data['functional_replay'] = {
-            'date': report['date'], 'duration_seconds': report['duration_seconds'],
-            'checks': report['checks'], 'proof': str(report_path.relative_to(ROOT)),
-            'fault_mode': report.get('fault_mode', 'redis_container_stopped'),
-            'context_label': 'DOCKER SUR GITHUB ACTIONS' if report_path == ci_report else 'DOCKER LOCAL'}
-        step = data['steps'][3]
-        step.update(status='TEST DOCKER RÉEL RÉUSSI', short_status='VÉRIFIÉ',
-                    description='Le test Docker a créé puis relu une commande et retrouvé son événement archivé par le worker. Redis rendu non répondant a produit /ready=503 et /health=200, puis une deuxième commande a été archivée après reprise. Nettoyage vérifié. Durée totale : ' + str(report['duration_seconds']) + ' s. Ce résultat ne démontre pas un déploiement K3s.',
-                    proof=str(report_path.relative_to(ROOT)))
-flow_path = ROOT / 'demo/evidence/kubernetes-flow-20261014.json'
-if flow_path.is_file():
-    flow = json.loads(flow_path.read_text())
-    if (flow.get('status') != 'passed' or flow['promotion']['status'] != 'promoted'
-            or flow['failure_drill']['status'] != 'failed_then_rolled_back'
-            or flow['post_rollback_functional']['status'] != 'passed'
-            or flow['promotion']['release'] != release):
-        raise SystemExit('Incomplete or inconsistent Kubernetes proof')
-    proof = str(flow_path.relative_to(ROOT))
-    promotion = flow['promotion']['duration_seconds']
-    rollback = flow['failure_drill']['duration_seconds']
-    functional = flow['post_rollback_functional']
-    data['steps'][2].update(status='PROMOTION K3S EXÉCUTÉE ET VÉRIFIÉE', short_status='VÉRIFIÉ',
-        description=f'La release Orders a été promue dans asteria-demo en {promotion} s. Le digest demandé, les imageID, le rollout et les trois probes concordent. L’opérateur utilise un token court et des droits limités ; la CI ne contacte pas le cluster.', proof=proof)
-    data['steps'][3].update(status='PARCOURS MÉTIER K3S RÉUSSI APRÈS ROLLBACK', short_status='VÉRIFIÉ',
-        description='Une commande synthétique a été créée, relue et retrouvée avec le même order_id dans l’archive du worker après le rollback. PostgreSQL, Redis et le worker sont séparés des services historiques. Durée du test : ' + str(functional['duration_seconds']) + ' s.',
-        command='python3 demo/scripts/kubernetes-e2e.py … --execute', proof=proof)
-    data['steps'][4].update(status='ÉCHEC CONTRÔLÉ ET ROLLBACK K3S VÉRIFIÉS', short_status='VÉRIFIÉ',
-        description=f'Une nouvelle révision avec readiness inexistante a échoué. Le rollback a rétabli le digest précédent, puis les probes et le parcours métier ont été revérifiés. Durée de l’exercice : {rollback} s, dont le timeout Helm de 180 s.', proof=proof)
-    data['measures'][2].update(value=str(rollback) + ' s', note='Exercice readiness invalide, timeout de 180 s puis retour arrière et probes vérifiés. Mesure datée de lab, aucun SLO revendiqué.')
-    data['kubernetes_summary'] = {'date': flow['date'], 'promotion_seconds': promotion,
-        'rollback_seconds': rollback, 'worker_counter': functional['worker_processed_counter']}
-    data['functional_replay'] = {'date': functional['date'],
-        'duration_seconds': functional['duration_seconds'], 'proof': proof,
-        'context_label': 'K3S · DONNÉES SYNTHÉTIQUES · APRÈS ROLLBACK',
-        'checks': ['order_persisted_and_matching_notification_archived', 'worker_counter_observed'],
-        'worker_counter': functional['worker_processed_counter']}
-    data['observed_at'] = 'Vérifications K3s du ' + flow['date'] + '. Replay de preuves datées, aucune interrogation live depuis cette page.'
-output.mkdir(parents=True, exist_ok=True)
-for name in ['index.html', 'style.css', 'app.js']:
-    shutil.copyfile(ROOT / 'demo/web' / name, output / name)
-(output / 'evidence.json').write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-print(f'Static site built: {output} (four public files, no repository or credentials copied)')
+ROOT = Path(__file__).resolve().parents[2]
+WEB = ROOT / 'demo/web'
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--output', required=True, type=Path)
+    args = parser.parse_args()
+    output = args.output.absolute()
+    if output.is_symlink() or output == ROOT or output in ROOT.parents:
+        raise SystemExit('Refusing unsafe output directory')
+    if output.exists() and (not output.is_dir() or any(output.iterdir())):
+        raise SystemExit('Refusing to overwrite a nonempty output directory')
+    npm = shutil.which('npm')
+    if not npm:
+        raise SystemExit('Node 22+ and npm required. Run npm ci in demo/web first.')
+    subprocess.run([npm, 'run', 'build'], cwd=WEB, check=True)
+    dist = WEB / 'dist'
+    if output.resolve() == dist.resolve():
+        raise SystemExit('Choose an export directory distinct from demo/web/dist')
+    output.mkdir(parents=True, exist_ok=True)
+    # The build audit accepts only html/js/css/svg/woff2/txt, never raw evidence or repo files.
+    for path in dist.iterdir():
+        if path.is_dir():
+            shutil.copytree(path, output / path.name)
+        else:
+            shutil.copyfile(path, output / path.name)
+    print(f'Static console exported to {output}; filtered evidence only, no cloud access')
+
+if __name__ == '__main__':
+    main()

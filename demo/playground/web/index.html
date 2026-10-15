@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Asteria · Local Orders Playground</title>
+    <link rel="icon" href="/assets/favicon.svg" />
+    <link rel="stylesheet" href="/assets/style.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <a
+          href="https://boualili-youcef.github.io/Asteria/"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="brand"
+          >A<span>ASTERIA / ORDERS PLAYGROUND</span></a
+        ><span class="live">Local Docker live</span>
+      </header>
+      <section class="intro">
+        <span class="eyebrow">LABORATOIRE LOCAL · DONNÉES SYNTHÉTIQUES</span>
+        <h1>Une vraie commande.<br />Une archive observable.</h1>
+        <p>
+          Orders écrit en PostgreSQL, publie dans Redis, puis le worker archive
+          l’événement. Ces observations proviennent de vos conteneurs Docker,
+          indépendamment du cluster K3s.
+        </p>
+      </section>
+      <section aria-label="Santé locale" class="health-grid">
+        <article>
+          <span>ORDERS API</span
+          ><strong id="orders-health">Lecture en cours…</strong
+          ><small id="orders-ready">Readiness non disponible</small>
+        </article>
+        <article>
+          <span>NOTIFICATIONS WORKER</span
+          ><strong id="worker-health">Lecture en cours…</strong
+          ><small id="worker-ready">Readiness non disponible</small>
+        </article>
+        <article>
+          <span>POSTGRESQL / DONNÉES RÉELLES</span
+          ><strong><span id="order-count">—</span> commandes</strong
+          ><small><span id="archive-count">—</span> événements archivés</small>
+        </article>
+      </section>
+      <p id="connection" role="status">Connexion au BFF local…</p>
+      <div class="workspace">
+        <section class="panel">
+          <span class="eyebrow">01 / CRÉER ET RELIRE</span>
+          <h2>Créer une commande synthétique.</h2>
+          <form id="order-form">
+            <label for="amount">Montant de démonstration</label>
+            <div class="form-row">
+              <input
+                id="amount"
+                name="amount"
+                type="number"
+                min="0"
+                max="9999999999.99"
+                step="0.01"
+                value="42.00"
+                required
+              /><button id="submit" disabled>Créer la commande →</button>
+            </div>
+          </form>
+          <p class="note">
+            Le client est fixé à <code>playground-synthetic</code>. Ne saisir
+            aucune donnée personnelle. Aucun paiement n’est effectué.
+          </p>
+          <div id="receipt" class="receipt" aria-live="polite">
+            <p>La réponse réelle de l’API apparaîtra ici.</p>
+          </div>
+          <ol class="flow">
+            <li>POST Orders</li>
+            <li>PostgreSQL</li>
+            <li>Redis</li>
+            <li>Worker</li>
+            <li>Archive SQL</li>
+          </ol>
+          <p class="note">
+            Actualisation toutes les 2 secondes. Les compteurs proviennent de
+            PostgreSQL. Le délai d’observation inclut le polling ; ce n’est pas
+            une mesure de latence de la file Redis.
+          </p>
+        </section>
+        <section class="panel">
+          <span class="eyebrow">02 / OBSERVER L’ARCHIVE</span>
+          <h2>Derniers événements consommés.</h2>
+          <p class="note">
+            Le même <code>order_id</code> doit apparaître dans Orders et
+            l’archive du worker. Les vingt dernières archives sont affichées.
+          </p>
+          <ul
+            id="archives"
+            class="archives"
+            tabindex="0"
+            aria-label="Dernières archives PostgreSQL"
+          >
+            <li>Aucune observation disponible.</li>
+          </ul>
+          <button id="refresh" class="secondary">Actualiser maintenant</button>
+          <p id="observed" class="note"></p>
+        </section>
+      </div>
+      <section class="panel limits">
+        <h2>Expérimenter une dépendance indisponible.</h2>
+        <p>Dans un terminal, depuis <code>demo/playground</code> :</p>
+        <pre>
+docker compose stop redis
+# Observer /ready 503 et /health 200 ci-dessus.
+docker compose start redis</pre
+        >
+        <p>
+          Le navigateur n’a aucun accès au daemon Docker. Aucun bouton de chaos
+          ou de reset n’est exposé. La reprise peut prendre quelques secondes ;
+          créer ensuite une nouvelle commande.
+        </p>
+        <div class="warning">
+          Sans outbox : un commit PostgreSQL peut précéder une erreur Redis.
+          BLPOP ne fournit pas d’ACK durable. Ce laboratoire montre ces limites
+          ; il ne les corrige pas.
+        </div>
+      </section>
+      <footer>
+        Local Docker live ≠ preuves K3s enregistrées · Pas de HA, DR ou TLS data
+        interne · Arrêt volontaire : <code>docker compose down</code>
+      </footer>
+    </main>
+    <script src="/assets/app.js" defer></script>
+  </body>
+</html>

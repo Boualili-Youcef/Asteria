@@ -5,6 +5,11 @@
 [Ouvrir la démonstration](https://boualili-youcef.github.io/Asteria/) ·
 [Comprendre le projet](demo/README.md) · [Rejouer le parcours](demo/RUNBOOK.md)
 
+La **Platform Console** relie un graphe d’architecture interactif, la release
+vérifiée, trois replays d’incidents, le catalogue des services et le registre
+des 22 constats. [Démarrer et tester le site localement](demo/web/README.md).
+Les preuves sont datées ; aucun bouton du site public n’administre le cloud.
+
 Asteria est un lab Platform Engineering sur OpenStack. Il part d'une
 infrastructure fonctionnelle mais imparfaite et améliore un parcours concret :
 la livraison d'Orders, une API de commandes.

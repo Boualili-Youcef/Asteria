@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-15T13:09:44.943338+00:00",
+  "record_type": "authored_summary_of_observed_local_checks",
+  "cloud_actions": false,
+  "remote_publication": false,
+  "frontend_unit_tests_passed": 39,
+  "public_browser_tests_passed": 14,
+  "public_views_scanned_wcag": 7,
+  "public_viewports": [
+    "desktop",
+    "mobile"
+  ],
+  "application_tests_passed": 20,
+  "offline_guards_passed": 16,
+  "lint": "passed",
+  "typecheck": "passed",
+  "production_build": "passed",
+  "public_bundle_files": 17,
+  "local_browser_viewports_passed": [
+    "desktop",
+    "mobile"
+  ],
+  "limitations": [
+    "Automated accessibility checks do not certify full WCAG compliance",
+    "No new cloud observation or deployment",
+    "No human recruiter usability study",
+    "No remote GitHub Actions execution in this mission"
+  ]
+}

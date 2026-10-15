@@ -1,0 +1,990 @@
+{
+  "schema": 2,
+  "mode": "dated-evidence-not-live",
+  "date": "2026-10-14T19:57:56.057393+00:00",
+  "sourceCommit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+  "release": {
+    "schema": 1,
+    "commit": "27383ed72497a782c5cd3b3b4f62a2b20ebe812a",
+    "image": "ghcr.io/boualili-youcef/asteria/orders-api",
+    "digest": "sha256:a3bdf01082f8f709504b31af5609aec42abd77d271bc37be5a9dc464620c5c47",
+    "run_id": "38622409565"
+  },
+  "metrics": {
+    "vms": 5,
+    "nodes": 3,
+    "ready": 3,
+    "services": 3,
+    "findings": 22,
+    "cpu": 9,
+    "cpuQuota": 10,
+    "ramGiB": 17,
+    "ramQuotaGiB": 20,
+    "promotion": 36.323,
+    "rollback": 209.505,
+    "postTest": 12.151,
+    "orders": 3,
+    "archives": 3
+  },
+  "scan": {
+    "high": 0,
+    "critical": 0,
+    "baselineHigh": 88,
+    "baselineCritical": 3,
+    "baselineRun": "38602997000",
+    "scanner": "Trivy 0.76.0",
+    "targets": [
+      "alpine",
+      "python-pkg"
+    ]
+  },
+  "ci": {
+    "url": "https://github.com/Boualili-Youcef/Asteria/actions/runs/38622409565",
+    "jobs": [
+      {
+        "name": "test",
+        "seconds": 20,
+        "steps": [
+          {
+            "name": "Test Orders and operator guards",
+            "seconds": 1
+          }
+        ]
+      },
+      {
+        "name": "release",
+        "seconds": 83,
+        "steps": [
+          {
+            "name": "Build once and publish immutable candidate",
+            "seconds": 20
+          },
+          {
+            "name": "Scan the published candidate before allowing promotion",
+            "seconds": 9
+          },
+          {
+            "name": "Smoke test immutable image",
+            "seconds": 7
+          },
+          {
+            "name": "Synthetic Orders event flow",
+            "seconds": 28
+          }
+        ]
+      }
+    ]
+  },
+  "events": [
+    {
+      "event": "upgrade_started",
+      "seconds": 0
+    },
+    {
+      "event": "upgrade_failed",
+      "seconds": 192.208
+    },
+    {
+      "event": "rollback_started",
+      "seconds": 192.208
+    },
+    {
+      "event": "rollback_verified",
+      "seconds": 209.504
+    }
+  ],
+  "docker": {
+    "date": "2026-10-14T19:18:54.115163+00:00",
+    "seconds": 10.597,
+    "fault": "redis_process_paused_network_preserved",
+    "checks": [
+      "order_persisted_and_matching_notification_archived",
+      "redis_failure_readiness_503_liveness_200",
+      "redis_recovered_second_order_archived",
+      "worker_counter_2"
+    ]
+  },
+  "security": {
+    "crossNamespace": true,
+    "allowed": true,
+    "denied": true,
+    "rbac": {
+      "create deployments -n asteria-demo": true,
+      "create pods --subresource=portforward -n asteria-demo": true,
+      "get secrets -n team-orders": true,
+      "create namespaces": true,
+      "delete nodes": true
+    },
+    "historicalUnchanged": true
+  },
+  "findings": [
+    {
+      "id": "ASIS-001",
+      "text": "L'underlay OpenStack est un réseau provider plat partagé. Les références inter-SG n'ont pas isolé seules SSH et les NodePorts ; des contrôles hôte compensatoires ont été nécessaires.",
+      "severity": "Élevé",
+      "domain": "Réseau",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-002",
+      "text": "L'entrée du lab est un NodePort privé sur les adresses des workers, sans Floating IP, VIP, Octavia, DNS public ni certificat métier.",
+      "severity": "Élevé",
+      "domain": "Réseau",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-003",
+      "text": "K3s possède un control plane unique, un datastore SQLite local et zéro snapshot K3s observé.",
+      "severity": "Élevé",
+      "domain": "Continuité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-004",
+      "text": "Le kubeconfig du bastion a des privilèges administratifs larges, les applications n'ont pas de ServiceAccount dédié et aucune NetworkPolicy n'existe dans le cluster.",
+      "severity": "Élevé",
+      "domain": "Sécurité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-005",
+      "text": "PostgreSQL est un primaire unique hors cluster ; `pg_stat_replication` ne montre aucun réplica. Une unique sauvegarde initiale locale existe, sans planification, copie externe ou restauration testée.",
+      "severity": "Élevé",
+      "domain": "Données",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-006",
+      "text": "Les connexions PostgreSQL utilisent SCRAM, mais TLS n'est pas imposé par la baseline sur l'underlay partagé.",
+      "severity": "Élevé",
+      "domain": "Sécurité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-007",
+      "text": "Redis est un maître unique sans réplica, avec `default on nopass +@all`, trafic non chiffré, PVC `local-path` et aucune NetworkPolicy.",
+      "severity": "Élevé",
+      "domain": "Données",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-008",
+      "text": "Les trois applications, Prometheus et Grafana n'ont qu'un replica. Une panne ou maintenance du nœud hébergeant un Pod provoque une interruption jusqu'au redémarrage ailleurs.",
+      "severity": "Moyen",
+      "domain": "Continuité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-009",
+      "text": "Les applications créent leurs schémas au démarrage, sans migrations versionnées. Orders persiste puis publie sans outbox, et Notifications consomme une liste Redis sans reprise robuste ni DLQ.",
+      "severity": "Élevé",
+      "domain": "Applications",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-010",
+      "text": "Les APIs ne fournissent aucune authentification ou autorisation métier ; l'Ingress privé est le principal facteur limitant l'exposition réelle du lab.",
+      "severity": "Élevé",
+      "domain": "Sécurité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-011",
+      "text": "Les mots de passe PostgreSQL sont gérés par des fichiers locaux protégés puis des Secrets Kubernetes créés manuellement, sans coffre central ni rotation automatique.",
+      "severity": "Élevé",
+      "domain": "Sécurité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-012",
+      "text": "Trois méthodes de déploiement coexistent : YAML brut, chart Helm spécifique et `kubectl apply` manuel. Il n'existe aucun GitOps, rollback ou historique de promotion commun.",
+      "severity": "Élevé",
+      "domain": "Livraison",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-013",
+      "text": "La CI est fragmentée : Identity publie sans tests, Notifications reste hors runner et aucun chemin ne fournit des contrôles homogènes.",
+      "severity": "Élevé",
+      "domain": "Livraison",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-014",
+      "text": "Aucun pipeline ne produit de scan, SBOM, signature ou provenance. Les actions GitHub utilisent des tags majeurs plutôt que des SHA immuables.",
+      "severity": "Élevé",
+      "domain": "Livraison",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-015",
+      "text": "Les images GHCR publiées par M15 ne sont pas consommées par M14. Les workloads exécutent des tags M13 importés manuellement sur chaque nœud et non épinglés par digest dans les manifests.",
+      "severity": "Élevé",
+      "domain": "Livraison",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-016",
+      "text": "Prometheus et Grafana utilisent `emptyDir`, avec 24 h de rétention maximum, un dashboard artisanal et aucune couverture dédiée pour PostgreSQL, Redis ou ingress-nginx.",
+      "severity": "Élevé",
+      "domain": "Observabilité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-017",
+      "text": "Zéro règle Prometheus, aucun Alertmanager, SLO, logging centralisé ou tracing n'est présent. Les incidents dépendent de l'observation manuelle.",
+      "severity": "Élevé",
+      "domain": "Observabilité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-018",
+      "text": "Grafana accepte un utilisateur anonyme `Viewer`. Le chemin actuel est privé, mais cette configuration ne doit pas être assimilée à une exposition publique sécurisée.",
+      "severity": "Moyen",
+      "domain": "Sécurité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-019",
+      "text": "Les cinq VM signalent `NTPSynchronized=no` et présentent environ sept minutes de retard, ce qui fragilise certificats, journaux et corrélation des exécutions.",
+      "severity": "Élevé",
+      "domain": "Infrastructure",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-020",
+      "text": "La baseline consomme 9 des 10 vCPU et 17 des 20 Go de RAM autorisés ; les quotas empêchent un troisième worker de taille actuelle et limitent les options de HA.",
+      "severity": "Moyen",
+      "domain": "Infrastructure",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-021",
+      "text": "ingress-nginx est figé sur une version issue d'un dépôt archivé ; sa trajectoire de maintenance n'est pas satisfaisante.",
+      "severity": "Élevé",
+      "domain": "Réseau",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    },
+    {
+      "id": "ASIS-022",
+      "text": "Aucun environnement de staging, plan de reprise global ou restauration K3s/Redis/PostgreSQL de bout en bout n'est démontré.",
+      "severity": "Élevé",
+      "domain": "Continuité",
+      "state": "Constat AS-IS · clôture globale non évaluée",
+      "source": "docs/phase-1-as-is/08-as-is-known-issues.md"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "openstack",
+      "title": "OpenStack",
+      "subtitle": "Provider partagé · Terraform",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 330,
+      "y": 10,
+      "role": "Héberge cinq VM et leurs ports Neutron. Terraform gère compute et Security Groups ; Ansible configure les hôtes.",
+      "limitation": "Pas de self-service/L3, Floating IP ni Octavia. Frontières logiques, sans isolation physique.",
+      "sources": [
+        "infra/terraform/openstack/compute.tf",
+        "docs/adr/ADR-001-provider-network-fallback.md"
+      ]
+    },
+    {
+      "id": "bastion",
+      "title": "Bastion",
+      "subtitle": "1 vCPU · 1 Gio",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 30,
+      "y": 145,
+      "role": "Point d’administration privé ; SSH de secours conservé. Contrôles hôte pour les NodePorts.",
+      "limitation": "Instance unique. Aucun accès administrateur depuis ce site.",
+      "sources": [
+        "infra/ansible/playbooks/m07-bastion.yml",
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "cp",
+      "title": "Control plane",
+      "subtitle": "K3s · 2 vCPU · 4 Gio",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 330,
+      "y": 145,
+      "role": "Serveur Kubernetes avec datastore SQLite local et deux agents.",
+      "limitation": "Control plane unique ; aucune HA.",
+      "sources": [
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "pg-vm",
+      "title": "PostgreSQL historique",
+      "subtitle": "VM · 2 vCPU · 4 Gio",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 650,
+      "y": 145,
+      "role": "Primaire séparé avec trois bases et rôles applicatifs.",
+      "limitation": "Pas de réplica ni restauration complète démontrée. Aucun accès depuis la démo.",
+      "sources": [
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "w1",
+      "title": "Worker 01",
+      "subtitle": "2 vCPU · 4 Gio",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 200,
+      "y": 280,
+      "role": "Agent K3s pour les applications et l’entrée privée.",
+      "limitation": "Replicas applicatifs uniques ; pas de domaine de panne de zone.",
+      "sources": [
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "w2",
+      "title": "Worker 02",
+      "subtitle": "2 vCPU · 4 Gio",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 500,
+      "y": 280,
+      "role": "Second agent K3s sur le même underlay.",
+      "limitation": "Deux workers ne suffisent pas à démontrer une plateforme HA.",
+      "sources": [
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "flannel",
+      "title": "Flannel VXLAN",
+      "subtitle": "CNI source conservé",
+      "layer": "infra",
+      "scope": "source",
+      "kind": "historical",
+      "x": 350,
+      "y": 420,
+      "role": "Overlay du cluster source, sans conversion du CNI par la démo.",
+      "limitation": "Cilium/Hubble appartiennent au staging historique.",
+      "sources": [
+        "docs/adr/ADR-002-kubernetes-distribution-and-cni.md",
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "ingress",
+      "title": "ingress-nginx privé",
+      "subtitle": "NodePort via bastion",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 20,
+      "y": 30,
+      "role": "Route vers Identity, Orders et Grafana sur le réseau privé.",
+      "limitation": "Ni exposition publique ni certificat métier ; absent de asteria-demo.",
+      "sources": [
+        "k8s/current-state/ingress-nginx/values.yaml"
+      ]
+    },
+    {
+      "id": "identity",
+      "title": "identity-api",
+      "subtitle": "team-identity · YAML",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 20,
+      "y": 175,
+      "role": "Crée et relit des utilisateurs en PostgreSQL.",
+      "limitation": "Ni OIDC, ni JWT, ni login métier.",
+      "sources": [
+        "apps/identity-api/app/main.py",
+        "k8s/current-state/identity-api/identity-api.yaml"
+      ]
+    },
+    {
+      "id": "orders",
+      "title": "orders-api historique",
+      "subtitle": "team-orders · Helm",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 300,
+      "y": 30,
+      "role": "Persiste puis publie order.created dans Redis partagé.",
+      "limitation": "Commit SQL avant Redis sans outbox.",
+      "sources": [
+        "apps/orders-api/app/main.py",
+        "apps/orders-api/app/cache.py"
+      ]
+    },
+    {
+      "id": "redis",
+      "title": "Redis partagé",
+      "subtitle": "namespace shared",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 590,
+      "y": 30,
+      "role": "Liste d’événements entre Orders et Notifications.",
+      "limitation": "Unique et faiblement isolé dans l’AS-IS.",
+      "sources": [
+        "k8s/current-state/redis/redis.yaml"
+      ]
+    },
+    {
+      "id": "worker",
+      "title": "notifications-worker",
+      "subtitle": "team-notifications · YAML manuel",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 590,
+      "y": 175,
+      "role": "Consomme par BLPOP et archive en PostgreSQL.",
+      "limitation": "Pas d’email, d’ACK durable ni DLQ.",
+      "sources": [
+        "apps/notifications-worker/app/processor.py"
+      ]
+    },
+    {
+      "id": "historical-db",
+      "title": "PostgreSQL VM",
+      "subtitle": "Bases historiques séparées",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 300,
+      "y": 175,
+      "role": "Persiste utilisateurs, commandes et archives hors K3s.",
+      "limitation": "Jamais utilisé par asteria-demo.",
+      "sources": [
+        "docs/diagrams/as-is-architecture.mmd"
+      ]
+    },
+    {
+      "id": "monitor",
+      "title": "Prometheus / Grafana",
+      "subtitle": "Monitoring partiel",
+      "layer": "apps",
+      "scope": "source",
+      "kind": "historical",
+      "x": 20,
+      "y": 330,
+      "role": "Scrapes /metrics et dashboard manuel.",
+      "limitation": "Stockage éphémère ; pas d’alerting, SLO ou traces centralisées.",
+      "sources": [
+        "docs/phase-1-as-is/07-observability-as-is.md"
+      ]
+    },
+    {
+      "id": "demo-orders",
+      "title": "orders-api démo",
+      "subtitle": "asteria-demo · digest promu",
+      "layer": "apps",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 300,
+      "y": 350,
+      "role": "Même API Orders déployée par Helm avec image immuable.",
+      "limitation": "Données factices ; aucun Ingress ni NodePort.",
+      "sources": [
+        "demo/evidence/kubernetes-flow-20261014.json",
+        "demo/values.yaml"
+      ]
+    },
+    {
+      "id": "demo-redis",
+      "title": "Redis démo",
+      "subtitle": "asteria-demo · jetable",
+      "layer": "apps",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 590,
+      "y": 350,
+      "role": "Liste dédiée aux événements synthétiques.",
+      "limitation": "Pas de TLS interne, réplication ou DLQ.",
+      "sources": [
+        "demo/evidence/kubernetes-flow-20261014.json",
+        "demo/manifests/isolation.yaml"
+      ]
+    },
+    {
+      "id": "demo-worker",
+      "title": "Worker démo",
+      "subtitle": "asteria-demo · cache M13",
+      "layer": "apps",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 590,
+      "y": 500,
+      "role": "Consomme et archive le même order_id.",
+      "limitation": "Image M13 en cache ; livraison worker non refondue.",
+      "sources": [
+        "demo/evidence/kubernetes-flow-20261014.json",
+        "apps/notifications-worker/app/processor.py"
+      ]
+    },
+    {
+      "id": "demo-pg",
+      "title": "PostgreSQL démo",
+      "subtitle": "asteria-demo · jetable",
+      "layer": "apps",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 300,
+      "y": 500,
+      "role": "Base synthétique dédiée aux commandes et archives.",
+      "limitation": "Instance unique, sans PVC ni restauration ; exception TLS de lab.",
+      "sources": [
+        "demo/evidence/kubernetes-flow-20261014.json",
+        "demo/scripts/prepare-bootstrap.py"
+      ]
+    },
+    {
+      "id": "github",
+      "title": "GitHub Actions",
+      "subtitle": "Tests · build · Trivy",
+      "layer": "delivery",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 30,
+      "y": 40,
+      "role": "Construit une fois, scanne le digest et teste le parcours Docker.",
+      "limitation": "Le runner ne contacte jamais le cluster.",
+      "sources": [
+        ".github/workflows/orders-demo.yml"
+      ]
+    },
+    {
+      "id": "ghcr",
+      "title": "GHCR / release.json",
+      "subtitle": "Digest · SBOM · provenance",
+      "layer": "delivery",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 350,
+      "y": 40,
+      "role": "Lie commit, run et digest dans un artefact de promotion.",
+      "limitation": "Aucune signature vérifiée à l’admission.",
+      "sources": [
+        "demo/evidence/orders-release.json",
+        ".github/workflows/orders-demo.yml"
+      ]
+    },
+    {
+      "id": "operator",
+      "title": "Promotion privée",
+      "subtitle": "Helm 3.19.0 · token court",
+      "layer": "delivery",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 350,
+      "y": 200,
+      "role": "Vérifie contexte, identité cluster/namespace et CI.",
+      "limitation": "Manuelle et bornée ; GitOps non achevé.",
+      "sources": [
+        "demo/scripts/promote.py",
+        "demo/evidence/kubernetes-flow-20261014.json"
+      ]
+    },
+    {
+      "id": "verify",
+      "title": "Probes + test métier",
+      "subtitle": "Digest exécuté · archive SQL",
+      "layer": "delivery",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 650,
+      "y": 200,
+      "role": "Compare image demandée et imageID ; vérifie les probes et l’archive.",
+      "limitation": "Échantillons datés, sans garantie de disponibilité continue.",
+      "sources": [
+        "demo/evidence/kubernetes-flow-20261014.json",
+        "demo/scripts/kubernetes-e2e.py"
+      ]
+    },
+    {
+      "id": "policy",
+      "title": "RBAC + NetworkPolicy",
+      "subtitle": "Succès et refus attendus",
+      "layer": "delivery",
+      "scope": "demo",
+      "kind": "recorded",
+      "x": 30,
+      "y": 350,
+      "role": "Rôle démo autorisé ; Secrets historiques, namespaces et nœuds refusés.",
+      "limitation": "Contrôles limités au périmètre testé, pas une remédiation globale.",
+      "sources": [
+        "demo/manifests/isolation.yaml",
+        "demo/evidence/kubernetes-flow-20261014.json"
+      ]
+    },
+    {
+      "id": "teleport",
+      "title": "Teleport CE",
+      "subtitle": "T06 · GitHub SSO / MFA",
+      "layer": "delivery",
+      "scope": "source",
+      "kind": "historical",
+      "x": 30,
+      "y": 200,
+      "role": "Identité forte et certificats courts expérimentés en T06 ; secours conservé.",
+      "limitation": "Preuve historique, pas un contrôle courant. Instance unique.",
+      "sources": [
+        "docs/evidence/phase-2/T06-zero-trust-access-ready.md",
+        "docs/adr/ADR-005-privileged-access.md"
+      ]
+    },
+    {
+      "id": "staging",
+      "title": "Staging Cilium / Hubble",
+      "subtitle": "T07 · projet inaccessible",
+      "layer": "delivery",
+      "scope": "staging",
+      "kind": "historical",
+      "x": 350,
+      "y": 350,
+      "role": "K3s/Cilium/Hubble et policies testés sur le second projet.",
+      "limitation": "Projet désormais inaccessible ; aucun état courant revendiqué.",
+      "sources": [
+        "docs/evidence/phase-2/T07-target-kubernetes-foundation.md"
+      ]
+    },
+    {
+      "id": "target",
+      "title": "GitOps / Gateway / reprise",
+      "subtitle": "T08–T18 · à faire",
+      "layer": "delivery",
+      "scope": "target",
+      "kind": "proposal",
+      "x": 650,
+      "y": 350,
+      "role": "Trajectoire approuvée par ADR : TLS, secrets, données et restaurations.",
+      "limitation": "Décision ne signifie pas déploiement. HA/DR non démontrées.",
+      "sources": [
+        "PHASE_2_BACKLOG.md",
+        "docs/adr/ADR-010-gitops.md"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "id": "openstack-bastion",
+      "from": "openstack",
+      "to": "bastion",
+      "label": "VM / Neutron",
+      "guarantee": "Placement Terraform simplifié.",
+      "conceptual": true
+    },
+    {
+      "id": "openstack-cp",
+      "from": "openstack",
+      "to": "cp",
+      "label": "VM / Neutron",
+      "guarantee": "Placement Terraform.",
+      "conceptual": true
+    },
+    {
+      "id": "openstack-pg-vm",
+      "from": "openstack",
+      "to": "pg-vm",
+      "label": "VM data",
+      "guarantee": "Placement Terraform.",
+      "conceptual": true
+    },
+    {
+      "id": "cp-w1",
+      "from": "cp",
+      "to": "w1",
+      "label": "agent K3s",
+      "guarantee": "Relation de cluster simplifiée.",
+      "conceptual": true
+    },
+    {
+      "id": "cp-w2",
+      "from": "cp",
+      "to": "w2",
+      "label": "agent K3s",
+      "guarantee": "Relation de cluster simplifiée.",
+      "conceptual": true
+    },
+    {
+      "id": "w1-flannel",
+      "from": "w1",
+      "to": "flannel",
+      "label": "overlay",
+      "guarantee": "CNI source.",
+      "conceptual": true
+    },
+    {
+      "id": "w2-flannel",
+      "from": "w2",
+      "to": "flannel",
+      "label": "overlay",
+      "guarantee": "CNI source.",
+      "conceptual": true
+    },
+    {
+      "id": "bastion-cp",
+      "from": "bastion",
+      "to": "cp",
+      "label": "API privée",
+      "guarantee": "Administration privée, jamais depuis ce site.",
+      "conceptual": false
+    },
+    {
+      "id": "ingress-identity",
+      "from": "ingress",
+      "to": "identity",
+      "label": "HTTP privé",
+      "guarantee": "Route privée M14.",
+      "conceptual": false
+    },
+    {
+      "id": "ingress-orders",
+      "from": "ingress",
+      "to": "orders",
+      "label": "HTTP privé",
+      "guarantee": "Route privée M14.",
+      "conceptual": false
+    },
+    {
+      "id": "identity-historical-db",
+      "from": "identity",
+      "to": "historical-db",
+      "label": "SQL",
+      "guarantee": "Base/rôle dédié.",
+      "conceptual": false
+    },
+    {
+      "id": "orders-historical-db",
+      "from": "orders",
+      "to": "historical-db",
+      "label": "1 · commit SQL",
+      "guarantee": "Commit avant publication : Redis indisponible peut laisser une commande sans événement.",
+      "conceptual": false
+    },
+    {
+      "id": "orders-redis",
+      "from": "orders",
+      "to": "redis",
+      "label": "2 · RPUSH",
+      "guarantee": "Aucune outbox transactionnelle.",
+      "conceptual": false
+    },
+    {
+      "id": "redis-worker",
+      "from": "redis",
+      "to": "worker",
+      "label": "3 · BLPOP",
+      "guarantee": "Consommation destructive sans ACK durable : crash = risque de perte.",
+      "conceptual": false
+    },
+    {
+      "id": "worker-historical-db",
+      "from": "worker",
+      "to": "historical-db",
+      "label": "4 · archive SQL",
+      "guarantee": "Archive du payload, aucun email.",
+      "conceptual": false
+    },
+    {
+      "id": "demo-orders-demo-pg",
+      "from": "demo-orders",
+      "to": "demo-pg",
+      "label": "1 · commit SQL",
+      "guarantee": "Persistance synthétique vérifiée.",
+      "conceptual": false
+    },
+    {
+      "id": "demo-orders-demo-redis",
+      "from": "demo-orders",
+      "to": "demo-redis",
+      "label": "2 · RPUSH",
+      "guarantee": "Liste dédiée, sans outbox.",
+      "conceptual": false
+    },
+    {
+      "id": "demo-redis-demo-worker",
+      "from": "demo-redis",
+      "to": "demo-worker",
+      "label": "3 · BLPOP",
+      "guarantee": "Consommation sans DLQ.",
+      "conceptual": false
+    },
+    {
+      "id": "demo-worker-demo-pg",
+      "from": "demo-worker",
+      "to": "demo-pg",
+      "label": "4 · archive SQL",
+      "guarantee": "Correspondance order_id vérifiée en K3s.",
+      "conceptual": false
+    },
+    {
+      "id": "github-ghcr",
+      "from": "github",
+      "to": "ghcr",
+      "label": "push + scan",
+      "guarantee": "CI réussie, digest enregistré.",
+      "conceptual": false
+    },
+    {
+      "id": "ghcr-operator",
+      "from": "ghcr",
+      "to": "operator",
+      "label": "artefact",
+      "guarantee": "Release comparée à la CI ; aucun credential cluster dans le runner.",
+      "conceptual": false
+    },
+    {
+      "id": "operator-verify",
+      "from": "operator",
+      "to": "verify",
+      "label": "Helm → K3s",
+      "guarantee": "ImageID, probes et test métier concordants.",
+      "conceptual": false
+    },
+    {
+      "id": "policy-operator",
+      "from": "policy",
+      "to": "operator",
+      "label": "droits bornés",
+      "guarantee": "Tests négatifs demo-promoter.",
+      "conceptual": false
+    },
+    {
+      "id": "teleport-operator",
+      "from": "teleport",
+      "to": "operator",
+      "label": "identité / accès",
+      "guarantee": "Relation conceptuelle : T06 et session de promotion sont deux preuves distinctes.",
+      "conceptual": true
+    }
+  ],
+  "presentation": {
+    "sourceState": "3/3 Ready · 14 oct. 2026",
+    "steps": [
+      {
+        "title": "Commit & tests",
+        "description": "20 tests applicatifs et 13 contrôles de livraison passent, dont un refus Redis en boucle locale. Les gardes vérifient les paramètres dangereux et le rollback simulé ; ils ne prouvent pas un déploiement Kubernetes.",
+        "status": "VÉRIFIÉ",
+        "source": "demo/README.md"
+      },
+      {
+        "title": "Image & digest",
+        "description": "Le nouveau workflow construit Orders une seule fois, publie dans GHCR, demande SBOM et provenance, scanne le digest puis émet release.json après les contrôles. Aucun digest Demo réussi n'est encore enregistré ici.",
+        "status": "PRÉPARÉ",
+        "source": ".github/workflows/orders-demo.yml"
+      },
+      {
+        "title": "Promotion privée",
+        "description": "L'opérateur choisit explicitement son contexte et les identités du cluster et du namespace. Le script exige une release saine par digest et compare l'artefact à une CI réussie. La création initiale est séparée.",
+        "status": "À VALIDER",
+        "source": "demo/scripts/promote.py"
+      },
+      {
+        "title": "Parcours métier",
+        "description": "Le test Docker contrôle la persistance Orders et l'archive du même événement par le worker. Son résultat daté figure dans le registre lorsqu'il a réellement été exécuté. Aucun accès aux bases historiques.",
+        "status": "À VALIDER",
+        "source": "demo/README.md"
+      },
+      {
+        "title": "Échec & rollback",
+        "description": "Une readiness volontairement invalide doit empêcher la nouvelle version de devenir disponible. Après échec, le script rétablit la révision précédente et vérifie image, rollout, /health, /ready et /metrics. L'exercice K3s reste à exécuter sur un périmètre autorisé.",
+        "status": "À VALIDER",
+        "source": "demo/RUNBOOK.md"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "path": "demo/evidence/orders-release.json",
+      "sha256": "32224521b6b3c60c3c266ba382569b388672583e0db94738f5f11bb08630e955",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/kubernetes-flow-20261014.json",
+      "sha256": "98bafa18de590298a7068c5badf484e4835a2b37c3d455929ae7fe020f16ab25",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/ci-verification-20261014.json",
+      "sha256": "c18cd963fb832358361155a3a4651283c3d11f43eca173e9c7dc963349f12b54",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/ci-functional-20261014.json",
+      "sha256": "fe1160abf138601b2c2a2f5fc55a9ccc4e243e1854d8218225dfcc6be94cf31a",
+      "context": "Docker sur GitHub Actions",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/scan-baseline-20261014.json",
+      "sha256": "192703b8b89a7136ca411177c3e46ffbdc38e30849a7427d438d0285f05ae462",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/presentation.json",
+      "sha256": "765dd50584b96f415d2c4b3034224f80333fc03bf20690dddcd2af0c5bf800eb",
+      "context": "État éditorial initial, supplanté par les preuves K3s et CI",
+      "kind": "pedagogical"
+    },
+    {
+      "path": "demo/evidence/openstack-audit-20261014.json",
+      "sha256": "88a9f481e688451cd69d45741ef3fd43fd39a3ba01448001fb5d2d9f1305ff97",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "demo/evidence/kubernetes-audit-20261014.json",
+      "sha256": "1a9166b68a056f0ccb410f68539b71650e1e2eef155f016bae9248bf6df2896f",
+      "context": "Observation datée du lab",
+      "kind": "recorded"
+    },
+    {
+      "path": "docs/phase-1-as-is/08-as-is-known-issues.md",
+      "sha256": "246c998fdcccb5943b4f8a49db658fc918e7c5b9a880ce7c3b9a9a75ae0424e1",
+      "context": "Audit fin de phase 1",
+      "kind": "historical"
+    }
+  ]
+}
